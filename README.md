@@ -212,6 +212,9 @@ All credentials are externalized — nothing sensitive is committed:
 - HA passwords and auth headers live in `secrets.yaml` (gitignored), referenced via `!secret` in YAML
 - Webhook IDs are auto-scrubbed to placeholders by the pre-commit hook on every commit
 - A `.secret-patterns` safety net catches any credential patterns that slip through
+## Disclaimer
+
+If you have read through this all, a small disclaimer, i vibecoded the whole thing! And it all works! Yay GenAI!
 
 ## License
 
