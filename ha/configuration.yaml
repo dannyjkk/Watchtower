@@ -1,0 +1,100 @@
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Load frontend themes from the themes folder
+frontend:
+  themes: !include_dir_merge_named themes
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+template:
+  - switch:
+      - name: "Main PC"
+        unique_id: main_pc_power
+        state: "{{ not is_state('sensor.danny_desktop_danny_desktop_sessionstate', 'unavailable') }}"
+        icon: "{{ 'mdi:desktop-tower' if not is_state('sensor.danny_desktop_danny_desktop_sessionstate', 'unavailable') else 'mdi:desktop-tower-monitor' }}"
+        turn_on:
+          - action: button.press
+            target:
+              entity_id: button.wake_on_lan_34_5a_60_69_f9_7a
+        turn_off:
+          - action: button.press
+            target:
+              entity_id: button.danny_desktop_danny_desktop_sleep
+
+  - sensor:
+      - name: "Phone Screen Time Total"
+        unique_id: phone_screen_time_total
+        unit_of_measurement: "min"
+        icon: mdi:cellphone-clock
+        state: >
+          {{ (states('input_number.phone_youtube_usage') | float(0)
+            + states('input_number.phone_netflix_usage') | float(0)
+            + states('input_number.phone_prime_video_usage') | float(0)
+            + states('input_number.phone_instagram_usage') | float(0)
+            + states('input_number.phone_jiohotstar_usage') | float(0)
+            + states('input_number.phone_brave_usage') | float(0)) | round(0) }}
+
+      - name: "Demerit Zone"
+        unique_id: demerit_zone
+        icon: mdi:shield-alert
+        state: >
+          {% set pts = states('input_number.demerit_points') | int(12) %}
+          {% if pts >= 9 %}green
+          {% elif pts >= 6 %}yellow
+          {% elif pts >= 3 %}orange
+          {% else %}red{% endif %}
+
+http:
+  cors_allowed_origins:
+    - "*"
+
+sensor:
+  - platform: history_stats
+    name: "Power Cut Duration 7 Days"
+    entity_id: input_boolean.power_cut_active
+    state: "on"
+    type: time
+    start: "{{ now() - timedelta(days=7) }}"
+    end: "{{ now() }}"
+
+rest_command:
+  adguard_block_maria_ipad:
+    url: "http://192.168.0.122/control/access/set"
+    method: POST
+    headers:
+      Authorization: !secret adguard_basic_auth
+      Content-Type: "application/json"
+    payload: '{"allowed_clients":[],"disallowed_clients":["192.168.0.41"],"blocked_hosts":[]}'
+  adguard_unblock_maria_ipad:
+    url: "http://192.168.0.122/control/access/set"
+    method: POST
+    headers:
+      Authorization: !secret adguard_basic_auth
+      Content-Type: "application/json"
+    payload: '{"allowed_clients":[],"disallowed_clients":[],"blocked_hosts":[]}'
+  jarvis_send_message:
+    url: !secret telegram_jarvis_send_url
+    method: POST
+    payload: '{"text": "{{ message }}", "parse_mode": "Markdown"}'
+    content_type: "application/json"
+  adguard_set_custom_rules:
+    url: "http://192.168.0.122/control/filtering/set_rules"
+    method: POST
+    headers:
+      Authorization: !secret adguard_basic_auth
+      Content-Type: "application/json"
+    payload: '{"rules": {{ rules | tojson }}}'
+    content_type: "application/json"
+  adguard_get:
+    url: "http://192.168.0.122/control/{{ path }}"
+    method: GET
+    headers:
+      Authorization: !secret adguard_basic_auth
+  jarvis_send_message_keyboard:
+    url: !secret telegram_jarvis_send_url
+    method: POST
+    payload: '{"text": "{{ message }}", "parse_mode": "Markdown", "reply_markup": {{ reply_markup }}}'
+    content_type: "application/json"

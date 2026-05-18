@@ -1,0 +1,1290 @@
+- id: '1773675695966'
+  alias: Study lights on when PC is on near sunset or rain
+  description: Lights turn on based on sun elevation (getting dark) or rain, but ONLY
+    if PC is on. Cool white 6500K.
+  triggers:
+  - entity_id: binary_sensor.main_pc
+    from: 'off'
+    to: 'on'
+    id: pc_on
+    platform: state
+  - entity_id: sun.sun
+    attribute: elevation
+    below: 10
+    id: getting_dark
+    platform: numeric_state
+  - entity_id: weather.forecast_home
+    to:
+    - rainy
+    - pouring
+    - lightning
+    - lightning-rainy
+    id: rain_started
+    platform: state
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: pc_on
+      - condition: numeric_state
+        entity_id: sun.sun
+        attribute: elevation
+        below: 10
+      - condition: time
+        after: '12:00:00'
+      sequence:
+      - action: light.turn_on
+        target:
+          entity_id:
+          - light.wiz_pc_backlight
+          - light.wiz_pc_frontlight
+        data:
+          color_temp_kelvin: 6500
+    - conditions:
+      - condition: trigger
+        id: getting_dark
+      - condition: state
+        entity_id: binary_sensor.main_pc
+        state: 'on'
+      sequence:
+      - action: light.turn_on
+        target:
+          entity_id:
+          - light.wiz_pc_backlight
+          - light.wiz_pc_frontlight
+        data:
+          color_temp_kelvin: 6500
+    - conditions:
+      - condition: trigger
+        id: rain_started
+      - condition: state
+        entity_id: binary_sensor.main_pc
+        state: 'on'
+      sequence:
+      - action: light.turn_on
+        target:
+          entity_id:
+          - light.wiz_pc_backlight
+          - light.wiz_pc_frontlight
+        data:
+          color_temp_kelvin: 6500
+  mode: single
+- id: '1773675719487'
+  alias: Study lights off when PC turns off after sunset
+  description: ''
+  triggers:
+  - entity_id: binary_sensor.main_pc
+    from: 'on'
+    to: 'off'
+    trigger: state
+  conditions:
+  - condition: time
+    after: '17:00:00'
+    before: 02:00:00
+  actions:
+  - target:
+      entity_id:
+      - light.wiz_pc_backlight
+      - light.wiz_pc_frontlight
+    action: light.turn_off
+    data: {}
+  mode: single
+- id: '1773742681201'
+  alias: NFC - Study Room Vacuum Toggle
+  description: ''
+  triggers:
+  - tag_id: 4b6002aa-bdbb-464f-80de-bf61940b58eb
+    trigger: tag
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: vacuum.vaccum_bot
+        state:
+        - cleaning
+      sequence:
+      - target:
+          entity_id:
+          - vacuum.vaccum_bot
+        action: vacuum.pause
+        data: {}
+    - conditions:
+      - condition: state
+        entity_id: vacuum.vaccum_bot
+        state:
+        - paused
+      sequence:
+      - target:
+          entity_id:
+          - vacuum.vaccum_bot
+        action: vacuum.start
+        data: {}
+    default:
+    - target:
+        entity_id:
+        - vacuum.vaccum_bot
+      data:
+        cleaning_area_id:
+        - study_room
+      action: vacuum.clean_area
+  mode: single
+- id: '1773743682091'
+  alias: NFC - Maria's Bedroom Vacuum Toggle
+  description: ''
+  triggers:
+  - tag_id: 77c31cfd-cea6-4a76-86fb-494baf74aec6
+    trigger: tag
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: vacuum.vaccum_bot
+        state:
+        - cleaning
+      sequence:
+      - target:
+          entity_id:
+          - vacuum.vaccum_bot
+        action: vacuum.pause
+        data: {}
+    - conditions:
+      - condition: state
+        entity_id: vacuum.vaccum_bot
+        state:
+        - paused
+      sequence:
+      - target:
+          entity_id:
+          - vacuum.vaccum_bot
+        action: vacuum.start
+        data: {}
+    default:
+    - target:
+        entity_id:
+        - vacuum.vaccum_bot
+      data:
+        cleaning_area_id:
+        - maria_s_bedroom
+      action: vacuum.clean_area
+  mode: single
+- id: '1773760061545'
+  alias: Study lights on when PC unlocks
+  description: Turn on PC backlight and front light immediately when PC session is
+    unlocked. Cool white 6500K.
+  triggers:
+  - entity_id: sensor.danny_desktop_danny_desktop_sessionstate
+    to: Unlocked
+    trigger: state
+  conditions:
+  - after: sunset
+    after_offset: -00:30:00
+    condition: sun
+  actions:
+  - action: light.turn_on
+    data:
+      color_temp_kelvin: 6500
+    target:
+      entity_id:
+      - light.wiz_pc_backlight
+      - light.wiz_pc_frontlight
+  mode: single
+- id: '1773760083029'
+  alias: Phone battery warning — red study lights at 8PM
+  description: After 8PM, if Danny phone below 50% and study lights on, turn red.
+    Restore to cool white 6500K when charging or above 50%. Save-of-current-brightness
+    is gated on lights NOT already being red, so the 5-min re-evaluation doesn't clobber
+    the saved value with red's 255.
+  triggers:
+  - below: 50
+    entity_id: sensor.danny_s23_battery_level
+    platform: numeric_state
+  - minutes: /5
+    platform: time_pattern
+  - entity_id: sensor.danny_s23_battery_state
+    platform: state
+    to: charging
+  - above: 50
+    entity_id: sensor.danny_s23_battery_level
+    platform: numeric_state
+  conditions: []
+  actions:
+  - else:
+    - below: 50
+      condition: numeric_state
+      entity_id: sensor.danny_s23_battery_level
+    - after: '20:00:00'
+      condition: time
+    - condition: state
+      entity_id: light.wiz_pc_backlight
+      state: 'on'
+    - alias: Only save brightness if lights are not already red
+      if:
+      - condition: template
+        value_template: '{% set rgb = state_attr(''light.wiz_pc_backlight'', ''rgb_color'')
+          %}{{ rgb is none or (rgb|list) != [255, 0, 0] }}'
+      then:
+      - action: input_number.set_value
+        data:
+          value: '{{ state_attr(''light.wiz_pc_backlight'', ''brightness'') | int(255)
+            }}'
+        target:
+          entity_id: input_number.backlight_saved_brightness
+      - action: input_number.set_value
+        data:
+          value: '{{ state_attr(''light.wiz_pc_frontlight'', ''brightness'') | int(255)
+            }}'
+        target:
+          entity_id: input_number.frontlight_saved_brightness
+    - action: light.turn_on
+      data:
+        brightness_pct: 100
+        rgb_color:
+        - 255
+        - 0
+        - 0
+      target:
+        entity_id:
+        - light.wiz_pc_backlight
+        - light.wiz_pc_frontlight
+    if:
+    - condition: or
+      conditions:
+      - condition: state
+        entity_id: sensor.danny_s23_battery_state
+        state: charging
+      - above: 50
+        condition: numeric_state
+        entity_id: sensor.danny_s23_battery_level
+    - condition: state
+      entity_id: light.wiz_pc_backlight
+      state: 'on'
+    - after: sunset
+      condition: sun
+    then:
+    - action: light.turn_on
+      data:
+        brightness: '{{ states(''input_number.backlight_saved_brightness'') | int(255)
+          }}'
+        color_temp_kelvin: 6500
+      target:
+        entity_id:
+        - light.wiz_pc_backlight
+        - light.wiz_pc_frontlight
+  mode: restart
+- id: '1775409050188'
+  alias: Maria's iPad — Block internet on low battery
+  description: Blocks Maria's iPad (192.168.0.41) via AdGuard when her S23 battery
+    is below 15% and not charging. Restores when charging starts or battery goes above
+    15%.
+  triggers:
+  - platform: numeric_state
+    entity_id: sensor.maria_s_s23_battery_level
+    below: 15
+    id: battery_low
+  - platform: numeric_state
+    entity_id: sensor.maria_s_s23_battery_level
+    above: 15
+    id: battery_ok
+  - platform: state
+    entity_id: sensor.maria_s_s23_battery_state
+    to: charging
+    id: charging
+  - platform: state
+    entity_id: sensor.maria_s_s23_battery_state
+    to: discharging
+    id: unplugged
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: or
+        conditions:
+        - condition: and
+          conditions:
+          - condition: trigger
+            id: battery_low
+          - condition: not
+            conditions:
+            - condition: state
+              entity_id: sensor.maria_s_s23_battery_state
+              state: charging
+        - condition: and
+          conditions:
+          - condition: trigger
+            id: unplugged
+          - condition: numeric_state
+            entity_id: sensor.maria_s_s23_battery_level
+            below: 15
+      sequence:
+      - action: rest_command.adguard_block_maria_ipad
+    - conditions:
+      - condition: or
+        conditions:
+        - condition: trigger
+          id: battery_ok
+        - condition: trigger
+          id: charging
+      sequence:
+      - action: rest_command.adguard_unblock_maria_ipad
+  mode: restart
+- id: '1776107118790'
+  alias: Jarvis - Gym Entry Detected
+  description: 'Records gym entry timestamp when Danny enters the gym zone (and is
+    not on home WiFi, ruling out GPS drift). Companion automation ''Jarvis - Gym Exit
+    Detected'' computes duration on exit and decides whether to mark gym done. RESTART-SAFE:
+    state stored in input_datetime helper, survives HA restarts mid-gym.'
+  triggers:
+  - platform: state
+    entity_id: person.danny
+    to: Gym
+  actions:
+  - condition: template
+    value_template: '{{ states(''sensor.danny_s23_wi_fi_connection'') in [''<not connected>'',
+      ''unavailable'', ''unknown''] }}'
+  - action: input_datetime.set_datetime
+    data:
+      timestamp: '{{ now().timestamp() }}'
+    target:
+      entity_id: input_datetime.jarvis_gym_entered_at
+  mode: single
+- id: '1776107129898'
+  alias: Jarvis - Late Phone Usage
+  description: Flags late phone use when Tasker reports screen on after 11:30 PM
+  triggers:
+  - allowed_methods:
+    - POST
+    local_only: false
+    platform: webhook
+    webhook_id: <YOUR_LATE_PHONE_WEBHOOK_ID>
+  conditions:
+  - condition: state
+    entity_id: input_boolean.phone_used_late
+    state: 'off'
+  actions:
+  - target:
+      entity_id: input_boolean.phone_used_late
+    action: input_boolean.turn_on
+  mode: single
+- id: '1776107153923'
+  alias: Jarvis - Nightly Report 11:20 PM
+  description: Thin trigger at 23:20 IST. Snapshots pre-eval points, calls jarvis_compute_daily_eval,
+    applies overflow + exemption math, writes new state, records daily results to
+    input_number helpers and Habit Log calendar, sends Telegram report.
+  triggers:
+  - at: '23:20:00'
+    platform: time
+  actions:
+  - action: input_number.set_value
+    data:
+      value: '{{ states(''input_number.demerit_points'') | int(0) }}'
+    target:
+      entity_id: input_number.pre_eval_points
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: input_boolean.exemption_today
+        state: 'on'
+      sequence:
+      - action: script.jarvis_compute_daily_eval
+        response_variable: r
+      - action: input_number.set_value
+        data:
+          value: '{{ r.gym_delta | int }}'
+        target:
+          entity_id: input_number.daily_gym_result
+      - action: input_number.set_value
+        data:
+          value: '{{ r.guitar_delta | int }}'
+        target:
+          entity_id: input_number.daily_guitar_result
+      - action: input_number.set_value
+        data:
+          value: '{{ r.screen_delta | int }}'
+        target:
+          entity_id: input_number.daily_screen_result
+      - action: input_number.set_value
+        data:
+          value: '{{ r.tasks_delta | int }}'
+        target:
+          entity_id: input_number.daily_tasks_result
+      - action: input_number.set_value
+        data:
+          value: '{{ r.total_delta | int }}'
+        target:
+          entity_id: input_number.daily_total_delta
+      - action: input_number.set_value
+        data:
+          value: '{{ r.steps_delta | int }}'
+        target:
+          entity_id: input_number.daily_steps_result
+      - action: calendar.create_event
+        target:
+          entity_id: calendar.habit_log
+        data:
+          summary: Exemption Day
+          start_date: '{{ now().strftime(''%Y-%m-%d'') }}'
+          end_date: '{{ (now() + timedelta(days=1)).strftime(''%Y-%m-%d'') }}'
+          description: 'Exemption day - no eval
+
+
+            Gym: {{ ''done'' if r.gym_done else ''not done'' }}
+
+            Guitar: {{ r.guitar_min }}/{{ r.guitar_target }} min
+
+            Screen: {{ r.screen_total }}/{{ r.screen_limit }} min
+
+            Steps: {{ r.steps_count }}/{{ r.steps_target }}
+
+            Tasks: {{ ''done'' if r.tasks_done else ''not done'' }}
+
+
+            YT {{ r.breakdown.youtube }} | IG {{ r.breakdown.instagram }} | NF {{
+            r.breakdown.netflix }} | Prime {{ r.breakdown.prime }} | Hotstar {{ r.breakdown.jiohotstar
+            }} | Brave {{ r.breakdown.brave }}
+
+
+            Points: {{ r.current_pts }}/{{ states(''input_number.jarvis_points_max'')
+            | int }} (unchanged)
+
+            Exemption days: {{ states(''input_number.exemption_days'') | int }}'
+      - action: rest_command.jarvis_send_message
+        data:
+          message: "\U0001F6CB *Exemption day — no eval tonight.*\n\nYour day at a
+            glance (no points changed):\n\n*Habits:*\nGym: {{ 'done' if r.gym_done
+            else 'not done' }}\nGuitar: {{ r.guitar_min }}/{{ r.guitar_target }} min
+            ({{ ((r.guitar_min | int / r.guitar_target | int) * 100) | round(0) |
+            int }}%)\nScreen: {{ r.screen_total }}/{{ r.screen_limit }} min ({{ ((r.screen_total
+            | int / r.screen_limit | int) * 100) | round(0) | int }}% of limit){%
+            if r.is_relaxed_day %} _(relaxed)_{% endif %}\nSteps: {{ r.steps_count
+            }}/{{ r.steps_target }} ({{ ((r.steps_count | int / r.steps_target | int)
+            * 100) | round(0) | int }}%)\nHouse tasks: {{ 'done' if r.tasks_done else
+            'not done' }}\n\n*Breakdown:*\nYT: {{ r.breakdown.youtube }} | IG: {{
+            r.breakdown.instagram }} | NF: {{ r.breakdown.netflix }}\nPrime: {{ r.breakdown.prime
+            }} | Hotstar: {{ r.breakdown.jiohotstar }} | Brave: {{ r.breakdown.brave
+            }}\n\nPoints: {{ r.current_pts }}/{{ states('input_number.jarvis_points_max')
+            | int }} (unchanged) • Exemption days left: {{ states('input_number.exemption_days')
+            | int }}"
+      - stop: Exemption day — no evaluation
+  - action: script.jarvis_compute_daily_eval
+    response_variable: r
+  - variables:
+      current_exempt: '{{ states(''input_number.exemption_days'') | int(0) }}'
+      current_overflow: '{{ states(''input_number.overflow_points'') | int(0) }}'
+      points_max: '{{ states(''input_number.jarvis_points_max'') | int(12) }}'
+      points_per_exemption: '{{ states(''input_number.jarvis_points_per_exemption'')
+        | int(6) }}'
+  - variables:
+      earned_overflow: '{{ (r.would_be_pts - points_max) if r.would_be_pts > points_max
+        else 0 }}'
+      new_pts: '{{ [0, [points_max, r.would_be_pts] | min] | max }}'
+  - variables:
+      total_overflow: '{{ current_overflow + earned_overflow }}'
+  - variables:
+      exemptions_earned: '{{ (total_overflow / points_per_exemption) | int }}'
+      new_overflow: '{{ total_overflow % points_per_exemption }}'
+  - variables:
+      new_exemption_days: '{{ current_exempt + exemptions_earned }}'
+  - action: input_number.set_value
+    data:
+      value: '{{ new_pts }}'
+    target:
+      entity_id: input_number.demerit_points
+  - action: input_number.set_value
+    data:
+      value: '{{ new_overflow }}'
+    target:
+      entity_id: input_number.overflow_points
+  - action: input_number.set_value
+    data:
+      value: '{{ new_exemption_days }}'
+    target:
+      entity_id: input_number.exemption_days
+  - action: input_number.set_value
+    data:
+      value: '{{ r.gym_delta | int }}'
+    target:
+      entity_id: input_number.daily_gym_result
+  - action: input_number.set_value
+    data:
+      value: '{{ r.guitar_delta | int }}'
+    target:
+      entity_id: input_number.daily_guitar_result
+  - action: input_number.set_value
+    data:
+      value: '{{ r.screen_delta | int }}'
+    target:
+      entity_id: input_number.daily_screen_result
+  - action: input_number.set_value
+    data:
+      value: '{{ r.tasks_delta | int }}'
+    target:
+      entity_id: input_number.daily_tasks_result
+  - action: input_number.set_value
+    data:
+      value: '{{ r.steps_delta | int }}'
+    target:
+      entity_id: input_number.daily_steps_result
+  - action: input_number.set_value
+    data:
+      value: '{{ r.total_delta | int }}'
+    target:
+      entity_id: input_number.daily_total_delta
+  - action: calendar.create_event
+    target:
+      entity_id: calendar.habit_log
+    data:
+      summary: Habits ({{ '+' if r.total_delta | int >= 0 else '' }}{{ r.total_delta
+        }})
+      start_date: '{{ now().strftime(''%Y-%m-%d'') }}'
+      end_date: '{{ (now() + timedelta(days=1)).strftime(''%Y-%m-%d'') }}'
+      description: 'Gym: {{ ''+1'' if r.gym_done else ''-2'' }}
+
+        Guitar: {{ r.guitar_min }} min ({{ ''+1'' if r.guitar_done else ''-1'' }})
+
+        Screen: {{ r.screen_total }}/{{ r.screen_limit }} min ({{ ''+1'' if r.screen_ok
+        else ''-2'' }})
+
+        Tasks: {{ ''+1'' if r.tasks_done else ''+0'' }}
+
+        Steps: {{ r.steps_count }}/{{ r.steps_target }} ({{ ''+2'' if r.steps_done
+        else ''+0'' }})
+
+
+        YT {{ r.breakdown.youtube }} | IG {{ r.breakdown.instagram }} | NF {{ r.breakdown.netflix
+        }} | Prime {{ r.breakdown.prime }} | Hotstar {{ r.breakdown.jiohotstar }}
+        | Brave {{ r.breakdown.brave }}
+
+
+        Points: {{ r.current_pts }} > {{ new_pts }}/{{ points_max }} ({{ ''+'' if
+        r.total_delta | int >= 0 else '''' }}{{ r.total_delta }})
+
+        Overflow: {{ new_overflow }}/{{ points_per_exemption }}
+
+        Exemption days: {{ new_exemption_days }}
+
+        Zone: {{ states(''sensor.demerit_zone'') }}'
+  - action: rest_command.jarvis_send_message
+    data:
+      message: "\U0001F4CB *Jarvis Daily Report*{% if r.is_relaxed_day %} \U0001F334{%
+        endif %}\n\n*Habits:*\n{{ '✅' if r.gym_done else '❌' }} Gym: {{ '+1' if r.gym_done
+        else '-2' }}\n{{ '✅' if r.guitar_done else '❌' }} Guitar ({{ r.guitar_min
+        }} min): {{ '+1' if r.guitar_done else '-1' }}\n{{ '✅' if r.screen_ok else
+        '❌' }} Screen {{ r.screen_total }}/{{ r.screen_limit }} min: {{ '+1' if r.screen_ok
+        else '-2' }}\n{{ '✅' if r.tasks_done else '❌' }} House tasks: {{ '+1' if r.tasks_done
+        else '+0' }}\n{{ '✅' if r.steps_done else '⬜' }} Steps {{ r.steps_count }}/{{
+        r.steps_target }}: {{ '+2' if r.steps_done else '+0' }}\n\n*Breakdown:*\nYT:
+        {{ r.breakdown.youtube }} | IG: {{ r.breakdown.instagram }} | NF: {{ r.breakdown.netflix
+        }}\nPrime: {{ r.breakdown.prime }} | Hotstar: {{ r.breakdown.jiohotstar }}
+        | Brave: {{ r.breakdown.brave }}\n\n*Points: {{ r.current_pts }} → {{ new_pts
+        }}/{{ points_max }}* ({{ '+' if r.total_delta >= 0 else '' }}{{ r.total_delta
+        }})\n{% if exemptions_earned > 0 %}\U0001F389 *Earned {{ exemptions_earned
+        }} exemption day{{ 's' if exemptions_earned != 1 else '' }}!*\n{% endif %}•
+        Overflow: {{ new_overflow }}/{{ points_per_exemption }} toward next exemption\n•
+        Exemption days: {{ new_exemption_days }}\n\n⏰ Phone bedtime: 11:30 PM"
+  mode: single
+- id: '1776107163003'
+  alias: Jarvis - Late Phone Demerit
+  description: At 11:35 PM checks if phone was used late and applies -1 demerit. Skips
+    on exemption days.
+  triggers:
+  - at: '23:35:00'
+    platform: time
+  actions:
+  - condition: state
+    entity_id: input_boolean.phone_used_late
+    state: 'on'
+  - condition: state
+    entity_id: input_boolean.exemption_today
+    state: 'off'
+  - variables:
+      current_pts: '{{ states(''input_number.demerit_points'') | int(0) }}'
+      new_pts: '{{ [0, states(''input_number.demerit_points'') | int(0) - 1] | max
+        }}'
+  - data:
+      value: '{{ new_pts }}'
+    target:
+      entity_id: input_number.demerit_points
+    action: input_number.set_value
+  - data:
+      message: "\U0001F319 Late phone use detected.\nPoints: {{ current_pts }} → {{
+        new_pts }} (-1)"
+    action: rest_command.jarvis_send_message
+  mode: single
+- id: '1776107183041'
+  alias: Jarvis - Punishment Enforcer
+  description: 'Triggers on either sensor.demerit_zone state change OR input_boolean.exemption_today
+    state change. Both edges of the exemption boundary are first-class events: declare
+    exemption → empty rule set pushed (blocks lifted); midnight reset clears exemption
+    → rules re-pushed for actual zone. The sync script reads both inputs itself and
+    applies the override — single source of truth lives in script.jarvis_sync_adguard_rules.'
+  triggers:
+  - entity_id: sensor.demerit_zone
+    platform: state
+  - entity_id: input_boolean.exemption_today
+    platform: state
+  actions:
+  - action: script.jarvis_sync_adguard_rules
+  mode: single
+- id: '1776107191043'
+  alias: Jarvis - Midnight Reset
+  description: Resets daily trackers. Points, overflow, and exemption_days carry over.
+  triggers:
+  - at: 00:00:00
+    platform: time
+  actions:
+  - data:
+      value: 0
+    target:
+      entity_id:
+      - input_number.phone_youtube_usage
+      - input_number.phone_netflix_usage
+      - input_number.phone_prime_video_usage
+      - input_number.phone_instagram_usage
+      - input_number.phone_jiohotstar_usage
+      - input_number.phone_guitar_usage
+      - input_number.phone_brave_usage
+    action: input_number.set_value
+  - target:
+      entity_id:
+      - input_boolean.gym_visited_today
+      - input_boolean.phone_used_late
+      - input_boolean.exemption_today
+      - input_boolean.jarvis_holiday_today
+      - input_boolean.tasks_completed_today
+    action: input_boolean.turn_off
+  - action: input_datetime.set_datetime
+    data:
+      timestamp: 0
+    target:
+      entity_id: input_datetime.jarvis_gym_entered_at
+  mode: single
+- id: '1776187920192'
+  alias: Jarvis - Screen Time Warnings
+  description: Progressive Telegram warnings at 50%, 75%, 92%, 100% of the active
+    screen time limit (sensor.jarvis_screen_limit_today). Limit auto-scales for relaxed
+    days (weekends + jarvis_holiday_today). Skipped on exemption days. Template triggers
+    fire on edge (false→true), so each level alerts once per day. Mode queued/max:2
+    so simultaneous trigger re-evaluations at midnight (when phone_screen_time_total
+    resets and jarvis_screen_limit_today may flip) don't drop alerts via failed_single
+    rejection.
+  triggers:
+  - id: halfway
+    platform: template
+    value_template: '{{ states(''sensor.phone_screen_time_total'') | int(0) >= ((states(''sensor.jarvis_screen_limit_today'')
+      | int(120)) * 0.50) | int }}'
+  - id: three_quarters
+    platform: template
+    value_template: '{{ states(''sensor.phone_screen_time_total'') | int(0) >= ((states(''sensor.jarvis_screen_limit_today'')
+      | int(120)) * 0.75) | int }}'
+  - id: near
+    platform: template
+    value_template: '{{ states(''sensor.phone_screen_time_total'') | int(0) >= ((states(''sensor.jarvis_screen_limit_today'')
+      | int(120)) * 0.92) | int }}'
+  - id: limit
+    platform: template
+    value_template: '{{ states(''sensor.phone_screen_time_total'') | int(0) >= states(''sensor.jarvis_screen_limit_today'')
+      | int(120) }}'
+  conditions:
+  - condition: state
+    entity_id: input_boolean.exemption_today
+    state: 'off'
+  actions:
+  - variables:
+      limit: '{{ states(''sensor.jarvis_screen_limit_today'') | int(120) }}'
+      remaining: '{{ (states(''sensor.jarvis_screen_limit_today'') | int(120)) - (states(''sensor.phone_screen_time_total'')
+        | int(0)) }}'
+      relaxed: '{{ is_state(''binary_sensor.jarvis_relaxed_day'', ''on'') }}'
+      total: '{{ states(''sensor.phone_screen_time_total'') | int(0) }}'
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: limit
+      sequence:
+      - action: rest_command.jarvis_send_message
+        data:
+          message: "\U0001F534 *{{ limit }} min screen time reached!*{% if relaxed
+            %} (relaxed day){% endif %}\nYou've hit the limit. This WILL cost you
+            -2 points tonight.\nPut the phone down."
+    - conditions:
+      - condition: trigger
+        id: near
+      sequence:
+      - action: rest_command.jarvis_send_message
+        data:
+          message: "\U0001F7E0 *{{ total }} min screen time — close to limit!*{% if
+            relaxed %} (relaxed day){% endif %}\n{{ remaining }} min left before {{
+            limit }} min."
+    - conditions:
+      - condition: trigger
+        id: three_quarters
+      sequence:
+      - action: rest_command.jarvis_send_message
+        data:
+          message: "\U0001F7E1 *{{ total }} min screen time — three quarters used.*{%
+            if relaxed %} (relaxed day){% endif %}\n{{ remaining }} min remaining
+            before {{ limit }} min limit."
+    - conditions:
+      - condition: trigger
+        id: halfway
+      sequence:
+      - action: rest_command.jarvis_send_message
+        data:
+          message: '⚠️ *{{ total }} min screen time — halfway.*{% if relaxed %} (relaxed
+            day){% endif %}
+
+            {{ remaining }} min left of {{ limit }} min today. Pace yourself.'
+  mode: queued
+  max: 2
+- id: '1776686125717'
+  alias: Jarvis - Phone Usage Stats Bulk Update
+  description: 'Webhook-driven. Tasker polls usage stats every ~90s and POSTs a flat
+    JSON. For each {key, entity} in app_map, overwrites the matching input_number
+    if the key is present in the payload. Adding a new tracked app: add one entry
+    to app_map. Also updates jarvis_last_tasker_poll for health monitoring.'
+  triggers:
+  - local_only: false
+    platform: webhook
+    webhook_id: <YOUR_BULK_WEBHOOK_ID>
+  actions:
+  - variables:
+      app_map:
+      - entity: input_number.phone_youtube_usage
+        key: youtube
+      - entity: input_number.phone_instagram_usage
+        key: instagram
+      - entity: input_number.phone_netflix_usage
+        key: netflix
+      - entity: input_number.phone_prime_video_usage
+        key: prime
+      - entity: input_number.phone_jiohotstar_usage
+        key: hotstar
+      - entity: input_number.phone_brave_usage
+        key: brave
+      - entity: input_number.phone_guitar_usage
+        key: guitar
+  - repeat:
+      for_each: '{{ app_map }}'
+      sequence:
+      - if:
+        - condition: template
+          value_template: '{{ trigger.json[repeat.item.key] is defined }}'
+        then:
+        - action: input_number.set_value
+          data:
+            value: '{{ trigger.json[repeat.item.key] | float(0) | round(0) }}'
+          target:
+            entity_id: '{{ repeat.item.entity }}'
+  - action: input_datetime.set_datetime
+    data:
+      timestamp: '{{ now().timestamp() }}'
+    target:
+      entity_id: input_datetime.jarvis_last_tasker_poll
+  max: 5
+  mode: queued
+- id: '1777283948113'
+  alias: Jarvis - AdGuard Periodic Sync
+  description: Drift correction. Every 15 minutes, re-pushes the current zone's rules
+    to AdGuard. Catches drift from AdGuard restarts, manual UI edits, or missed state
+    changes.
+  triggers:
+  - minutes: /15
+    platform: time_pattern
+  actions:
+  - action: script.jarvis_sync_adguard_rules
+  mode: single
+- id: '1777315026442'
+  alias: Jarvis - Health Watchdog
+  description: 'Monitors data flow health AND critical automation state. Alerts via
+    Telegram when Tasker stops polling (>15 min stale), AdGuard sync fails (>30 min
+    stale), or any monitored Jarvis automation is disabled. Re-checks every 30 min.
+    Cooldown: 6h between alerts to avoid spam.'
+  triggers:
+  - platform: time_pattern
+    minutes: /30
+  conditions:
+  - condition: template
+    value_template: '{{ (states(''sensor.jarvis_minutes_since_tasker_poll'') | int(0)
+      > 15) or (states(''sensor.jarvis_minutes_since_adguard_sync'') | int(0) > 30)
+      or ((monitored_automations | select(''is_state'', ''off'') | list) | length
+      > 0) }}'
+  - condition: template
+    value_template: '{{ (as_timestamp(now()) - as_timestamp(states(''input_datetime.jarvis_last_health_alert'')))
+      / 3600 >= 6 }}'
+  actions:
+  - variables:
+      tasker_age: '{{ states(''sensor.jarvis_minutes_since_tasker_poll'') | int(0)
+        }}'
+      adguard_age: '{{ states(''sensor.jarvis_minutes_since_adguard_sync'') | int(0)
+        }}'
+      tasker_stale: '{{ states(''sensor.jarvis_minutes_since_tasker_poll'') | int(0)
+        > 15 }}'
+      adguard_stale: '{{ states(''sensor.jarvis_minutes_since_adguard_sync'') | int(0)
+        > 30 }}'
+      disabled_automations: '{{ monitored_automations | select(''is_state'', ''off'')
+        | list }}'
+      automations_off: '{{ (monitored_automations | select(''is_state'', ''off'')
+        | list) | length > 0 }}'
+  - action: rest_command.jarvis_send_message
+    data:
+      message: "\U0001F6A8 *Jarvis Health Alert*\n\n{% if tasker_stale %}❌ *Tasker
+        stale*: {{ tasker_age }} min since last poll (threshold: 15 min)\n  → Open
+        Tasker on phone, verify polling profile is enabled\n{% endif %}{% if adguard_stale
+        %}❌ *AdGuard sync stale*: {{ adguard_age }} min since last sync (threshold:
+        30 min)\n  → Check HA logs, verify AdGuard is reachable at 192.168.0.122\n{%
+        endif %}{% if automations_off %}❌ *Automations disabled* ({{ disabled_automations
+        | length }}):\n{% for a in disabled_automations %}  • {{ state_attr(a, 'friendly_name')
+        or a }}\n{% endfor %}  → Re-enable in HA UI (Settings → Automations) or via
+        MCP\n{% endif %}\n_Next check in 30 min. No further alerts for 6h to prevent
+        spam._"
+  - action: input_datetime.set_datetime
+    target:
+      entity_id: input_datetime.jarvis_last_health_alert
+    data:
+      timestamp: '{{ now().timestamp() }}'
+  mode: single
+  variables:
+    monitored_automations:
+    - automation.jarvis_phone_usage_stats_bulk_update
+    - automation.jarvis_gym_visit_detected
+    - automation.jarvis_gym_exit_detected
+    - automation.jarvis_late_phone_usage
+    - automation.jarvis_screen_time_warnings
+    - automation.jarvis_house_tasks_prompt
+    - automation.jarvis_nightly_report_10_45_pm
+    - automation.jarvis_late_phone_demerit
+    - automation.jarvis_punishment_enforcer
+    - automation.jarvis_adguard_periodic_sync
+    - automation.jarvis_midnight_reset
+- id: '1777315082401'
+  alias: Jarvis - Gym Exit Detected
+  description: Computes gym duration when Danny leaves the gym zone. Reads entry timestamp
+    from input_datetime.jarvis_gym_entered_at (set by Jarvis - Gym Entry Detected).
+    Marks gym done if duration ≥ jarvis_gym_min_minutes. Always clears the entry timestamp
+    on exit. RESTART-SAFE.
+  triggers:
+  - platform: state
+    entity_id: person.danny
+    from: Gym
+  actions:
+  - variables:
+      entered_ts: '{{ as_timestamp(states(''input_datetime.jarvis_gym_entered_at''),
+        0) }}'
+      min_minutes: '{{ states(''input_number.jarvis_gym_min_minutes'') | int(20) }}'
+      minutes_at_gym: '{{ ((as_timestamp(now()) - as_timestamp(states(''input_datetime.jarvis_gym_entered_at''),
+        0)) / 60) | round(0) }}'
+  - condition: template
+    value_template: '{{ entered_ts | float(0) > 0 }}'
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ minutes_at_gym | int >= min_minutes | int }}'
+      sequence:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.gym_visited_today
+      - action: rest_command.jarvis_send_message
+        data:
+          message: "\U0001F4AA Gym visit confirmed ({{ minutes_at_gym }} min). +1
+            point tonight."
+    default:
+    - action: rest_command.jarvis_send_message
+      data:
+        message: "\U0001F3C3 Gym exit detected after only {{ minutes_at_gym }} min
+          (need {{ min_minutes }}). No credit."
+  - action: input_datetime.set_datetime
+    data:
+      timestamp: 0
+    target:
+      entity_id: input_datetime.jarvis_gym_entered_at
+  mode: single
+- id: '1777315139752'
+  alias: NFC - Master Bedroom Vacuum Toggle
+  description: Tag-triggered vacuum toggle for the master bedroom. Tap NFC tag to
+    start/pause/resume vacuum cleaning the bedroom area.
+  triggers:
+  - tag_id: 2be8ced4-9917-4ed7-ab0b-bd83e94db971
+    platform: tag
+  actions:
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: vacuum.vaccum_bot
+        state:
+        - cleaning
+      sequence:
+      - target:
+          entity_id:
+          - vacuum.vaccum_bot
+        action: vacuum.pause
+        data: {}
+    - conditions:
+      - condition: state
+        entity_id: vacuum.vaccum_bot
+        state:
+        - paused
+      sequence:
+      - target:
+          entity_id:
+          - vacuum.vaccum_bot
+        action: vacuum.start
+        data: {}
+    default:
+    - target:
+        entity_id:
+        - vacuum.vaccum_bot
+      data:
+        cleaning_area_id:
+        - bedroom
+      action: vacuum.clean_area
+  mode: single
+- id: '1777315383099'
+  alias: Maria - Phone on Silent Alert
+  description: Notifies Danny via mobile_app when Maria's S23 ringer volume drops
+    below 13.
+  triggers:
+  - below: 13
+    entity_id:
+    - sensor.maria_s_s23_volume_level_ringer
+    platform: numeric_state
+  actions:
+  - device_id: ee7eca85116d9837425592c4c4440b85
+    domain: mobile_app
+    message: Maria's phone is silent. Fight with her
+    type: notify
+  mode: single
+- id: '1777442444106'
+  alias: Power - Ping Force Update
+  description: Polls C80 router ping sensor every 3s for fast power-cut detection.
+    The native ping integration polls every 30s by default which is too slow to catch
+    brief power blips. (The Levoit purifier was previously polled here too but its
+    WiFi flakes both ways and was dropped from the detection logic in power_blip_logged
+    — see that automation. Polling it here served no purpose, so it was removed.)
+  triggers:
+  - platform: time_pattern
+    seconds: /3
+  actions:
+  - action: homeassistant.update_entity
+    target:
+      entity_id:
+      - binary_sensor.archer_c80_2nd_router
+  mode: single
+  max_exceeded: silent
+  trace:
+    stored_traces: 1
+- id: '1777442462377'
+  alias: Power - Blip Logged
+  description: 'Fires when router ping goes off (router is the only reliable power-state
+    signal — purifier WiFi flakes both ways and was dropped from detection). Increments
+    blip counter. On the first blip in an event (power_cut_active was off), transitions
+    to UNSTABLE: sets the flag, logs start time, sends notification. Light suppression
+    during the unstable period is handled by Power - Lights Off During Instability
+    (which catches each WiZ default-on after the cycle) — no need to call turn_off
+    here, since lights are unreachable mid-cut anyway and that call always errored
+    with WizLightConnectionError.'
+  triggers:
+  - platform: state
+    entity_id: binary_sensor.archer_c80_2nd_router
+    to: 'off'
+  actions:
+  - action: counter.increment
+    target:
+      entity_id: counter.power_blips_current_event
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: input_boolean.power_cut_active
+        state: 'off'
+      sequence:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.power_cut_active
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.power_cut_start
+        data:
+          datetime: '{{ now().strftime(''%Y-%m-%d %H:%M:%S'') }}'
+      - action: notify.mobile_app_danny_s23
+        data:
+          title: Power Unstable
+          message: Detected at {{ now().strftime('%I:%M %p') }}. Lights paused until
+            stable.
+      - action: persistent_notification.create
+        data:
+          title: Power Unstable
+          message: Power unstable since {{ now().strftime('%d %b, %I:%M %p') }}
+          notification_id: power_cut_active
+  max: 50
+  mode: queued
+- id: '1777442483751'
+  alias: Power - Stable
+  description: 'Fires when router ping has been on for 30s after instability. (Purifier
+    dropped from logic — see Power - Blip Logged.) Logs event to rolling history,
+    resets per-event counter, restores light state from input_text.light_state_backup
+    (persistent across HA restarts), sends summary notification. Restore parses JSON
+    snapshot and iterates over 7 watched lights: lights in snapshot get turn_on with
+    brightness + kelvin (or brightness only if kelvin=0); lights absent from snapshot
+    get turn_off.'
+  triggers:
+  - entity_id: binary_sensor.archer_c80_2nd_router
+    for: 00:00:30
+    platform: state
+    to: 'on'
+  conditions:
+  - condition: state
+    entity_id: input_boolean.power_cut_active
+    state: 'on'
+  - condition: state
+    entity_id: binary_sensor.archer_c80_2nd_router
+    state: 'on'
+  - condition: template
+    value_template: '{{ (now() - states.binary_sensor.archer_c80_2nd_router.last_changed).total_seconds()
+      >= 30 }}'
+  actions:
+  - variables:
+      blip_count: '{{ states(''counter.power_blips_current_event'') | int }}'
+      start_ts: '{{ state_attr(''input_datetime.power_cut_start'', ''timestamp'')
+        | int }}'
+  - variables:
+      duration_seconds: '{{ (now().timestamp() - start_ts) | int }}'
+  - variables:
+      duration_pretty: '{{ (duration_seconds // 60) }}m {{ (duration_seconds % 60)
+        }}s'
+  - action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.power_cut_active
+  - action: input_datetime.set_datetime
+    data:
+      datetime: '{{ now().strftime(''%Y-%m-%d %H:%M:%S'') }}'
+    target:
+      entity_id: input_datetime.power_cut_end
+  - action: input_text.set_value
+    data:
+      value: '{% set new_entry = now().strftime(''%d%b %H:%M'') ~ '' '' ~ duration_pretty
+        ~ '' ('' ~ blip_count ~ ''b)'' %}{% set existing = states(''input_text.power_cut_log'')
+        %}{% set combined = (new_entry ~ '' | '' ~ existing) if existing and existing
+        not in [''unknown'', ''unavailable'', ''''] else new_entry %}{{ combined[:255]
+        }}'
+    target:
+      entity_id: input_text.power_cut_log
+  - action: counter.reset
+    target:
+      entity_id: counter.power_blips_current_event
+  - action: persistent_notification.dismiss
+    data:
+      notification_id: power_cut_active
+  - action: notify.mobile_app_danny_s23
+    data:
+      message: Stable at {{ now().strftime('%I:%M %p') }}. Was unstable for {{ duration_pretty
+        }} ({{ blip_count }} blip{{ 's' if blip_count|int != 1 else '' }}). Restoring
+        lights.
+      title: Power Stable
+  - delay:
+      seconds: 2
+  - variables:
+      snapshot: '{{ (states(''input_text.light_state_backup'') | from_json) if states(''input_text.light_state_backup'')
+        not in [''unknown'', ''unavailable'', ''''] else {} }}'
+      watched_lights:
+      - light.wiz_foyer
+      - light.wiz_keychain
+      - light.wiz_tv
+      - light.wiz_pc_frontlight
+      - light.wiz_pc_backlight
+      - light.bedside_lamp_2
+      - light.master_bedroom_light
+  - repeat:
+      for_each: '{{ watched_lights }}'
+      sequence:
+      - variables:
+          short_name: '{{ repeat.item.split(''.'')[1] }}'
+      - choose:
+        - conditions:
+          - condition: template
+            value_template: '{{ short_name in snapshot and snapshot[short_name][1]
+              | int > 0 }}'
+          sequence:
+          - action: light.turn_on
+            target:
+              entity_id: '{{ repeat.item }}'
+            data:
+              brightness: '{{ snapshot[short_name][0] | int }}'
+              color_temp_kelvin: '{{ snapshot[short_name][1] | int }}'
+            continue_on_error: true
+        - conditions:
+          - condition: template
+            value_template: '{{ short_name in snapshot }}'
+          sequence:
+          - action: light.turn_on
+            target:
+              entity_id: '{{ repeat.item }}'
+            data:
+              brightness: '{{ snapshot[short_name][0] | int }}'
+            continue_on_error: true
+        default:
+        - action: light.turn_off
+          target:
+            entity_id: '{{ repeat.item }}'
+          continue_on_error: true
+  max_exceeded: silent
+  mode: single
+- id: '1777442566441'
+  alias: Power - Lights Off During Instability
+  description: Catches WiZ default-on behavior after power cycles. If a watched light
+    flips on while power is unstable, immediately turn it back off so the room isn't
+    lit during cycling.
+  triggers:
+  - entity_id:
+    - light.wiz_foyer
+    - light.wiz_keychain
+    - light.wiz_tv
+    - light.wiz_pc_frontlight
+    - light.wiz_pc_backlight
+    - light.bedside_lamp_2
+    - light.master_bedroom_light
+    platform: state
+    to: 'on'
+  conditions:
+  - condition: state
+    entity_id: input_boolean.power_cut_active
+    state: 'on'
+  actions:
+  - action: light.turn_off
+    target:
+      entity_id: '{{ trigger.entity_id }}'
+  max: 20
+  mode: parallel
+- id: '1777442590573'
+  alias: Power - Save Light States
+  description: Persists current state of all 7 watched lights to input_text.light_state_backup
+    as JSON whenever any of them changes state. JSON contains only lights that are
+    on, mapped to [brightness, color_temp_kelvin]. Survives HA restart unlike the
+    previous scene.create approach. Fires immediately (no debounce) to avoid stale-snapshot
+    race during rapid power cycling. Gated on power_cut_active=off so saves are skipped
+    during instability. Mode:parallel so simultaneous light changes do not cancel
+    each other.
+  triggers:
+  - entity_id:
+    - light.wiz_foyer
+    - light.wiz_keychain
+    - light.wiz_tv
+    - light.wiz_pc_frontlight
+    - light.wiz_pc_backlight
+    - light.bedside_lamp_2
+    - light.master_bedroom_light
+    platform: state
+  conditions:
+  - condition: state
+    entity_id: input_boolean.power_cut_active
+    state: 'off'
+  actions:
+  - action: input_text.set_value
+    target:
+      entity_id: input_text.light_state_backup
+    data:
+      value: '{% set entries = [] %}{% set lights = [''light.wiz_foyer'', ''light.wiz_keychain'',
+        ''light.wiz_tv'', ''light.wiz_pc_frontlight'', ''light.wiz_pc_backlight'',
+        ''light.bedside_lamp_2'', ''light.master_bedroom_light''] %}{% for l in lights
+        if is_state(l, ''on'') %}{% set _ = entries.append([l.split(''.'')[1], [state_attr(l,
+        ''brightness'') or 0, state_attr(l, ''color_temp_kelvin'') or 0]]) %}{% endfor
+        %}{{ dict(entries) | tojson }}'
+  mode: parallel
+  max: 10
+- id: '1777442606049'
+  alias: Power - Weekly Report
+  description: Sends weekly Telegram summary every Sunday 21:00 IST listing recent
+    power-cut events from the rolling input_text log. Each event shows date, time,
+    duration, and blip count.
+  triggers:
+  - at: '21:00:00'
+    platform: time
+  conditions:
+  - condition: time
+    weekday:
+    - sun
+  actions:
+  - action: rest_command.jarvis_send_message
+    data:
+      message: "\U0001F4CA *Weekly Power Cut Report* ({{ now().strftime('%d %b %Y')
+        }})\n\n*Last 7 days:* {{ states('sensor.power_cuts_this_week') | int }} event{{
+        's' if states('sensor.power_cuts_this_week') | int != 1 else '' }}, {% set
+        mins = (states('sensor.power_cut_minutes_this_week') | float * 60) | round(1)
+        %}{% if mins >= 60 %}{{ (mins / 60) | round(2) }}h{% else %}{{ mins }}m{%
+        endif %} unstable\n\n*Recent events* (newest first — date HH:MM, duration,
+        blips):\n{{ states('input_text.power_cut_log') if states('input_text.power_cut_log')
+        and states('input_text.power_cut_log') not in ['unknown', 'unavailable', '']
+        else '_No events logged yet._' }}"
+  mode: single
+- id: '1777480771420'
+  alias: Main Living room lights when i turn off PC to go to sleep
+  description: ''
+  triggers:
+  - entity_id: binary_sensor.main_pc
+    from: 'on'
+    to: 'off'
+    platform: state
+  conditions:
+  - condition: time
+    before: 00:30:00
+    after: '22:30:00'
+  actions:
+  - target:
+      entity_id:
+      - light.wiz_foyer
+      - light.wiz_keychain
+      - light.wiz_tv
+    action: light.turn_off
+    data: {}
+  mode: single
+- id: '1777701023415'
+  alias: Jarvis - House Tasks Prompt
+  description: Fires at 22:30 IST. Sends Telegram message with inline buttons for
+    house tasks confirmation. Button callback routed by OpenClaw to script.mark_tasks_done.
+    Skips if exemption, holiday, or already done.
+  triggers:
+  - at: '22:30:00'
+    platform: time
+  conditions:
+  - condition: state
+    entity_id: input_boolean.exemption_today
+    state: 'off'
+  - condition: state
+    entity_id: input_boolean.jarvis_holiday_today
+    state: 'off'
+  - condition: state
+    entity_id: input_boolean.tasks_completed_today
+    state: 'off'
+  actions:
+  - action: rest_command.jarvis_send_message_keyboard
+    data:
+      message: "\U0001F3E0 *House tasks check-in.*\n\nDid you finish your house tasks
+        today?\n\n_(+1 at tonight's eval if done. No penalty either way.)_"
+      reply_markup: '{"inline_keyboard": [[{"text": "✅ Tasks Done", "callback_data":
+        "tasks_done"}, {"text": "❌ Tasks Not Done", "callback_data": "tasks_not_done"}]]}'
+  mode: single
+- id: '1779004812835'
+  alias: Power - Sweep Lights Off On Blip Detected
+  description: When input_boolean.power_cut_active flips off->on, immediately turn
+    off all 7 watched lights to catch any that came back ON before HA detected the
+    router blip (Wiz bulbs default to ON at AC restore, often beating router-ping
+    detection by several seconds). Uses continue_on_error so failures on still-unreachable
+    lights are ignored - those get caught later by Power - Lights Off During Instability
+    when they come back online, or by Power - Stable at the end of the event.
+  triggers:
+  - entity_id: input_boolean.power_cut_active
+    from: 'off'
+    platform: state
+    to: 'on'
+  actions:
+  - action: light.turn_off
+    continue_on_error: true
+    target:
+      entity_id:
+      - light.wiz_foyer
+      - light.wiz_keychain
+      - light.wiz_tv
+      - light.wiz_pc_frontlight
+      - light.wiz_pc_backlight
+      - light.bedside_lamp_2
+      - light.master_bedroom_light
+  mode: single

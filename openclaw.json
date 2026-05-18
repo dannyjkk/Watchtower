@@ -1,0 +1,477 @@
+{
+  "agents": {
+    "defaults": {
+      "compaction": {
+        "mode": "safeguard"
+      },
+      "heartbeat": {
+        "model": "google/gemini-2.5-flash-lite"
+      },
+      "model": {
+        "fallbacks": [
+          "openai/gpt-5.2",
+          "deepseek/deepseek-reasoner",
+          "google/gemini-3-flash"
+        ],
+        "primary": "ollama/qwen2.5:1.5b"
+      },
+      "models": {
+        "anthropic/claude-haiku-4-5": {
+          "alias": "haiku"
+        },
+        "anthropic/claude-opus-4-6": {
+          "alias": "opus"
+        },
+        "anthropic/claude-sonnet-4-5": {
+          "alias": "sonnet"
+        },
+        "deepseek/deepseek-chat": {
+          "alias": "ds"
+        },
+        "deepseek/deepseek-reasoner": {
+          "alias": "r1"
+        },
+        "google/gemini-3-flash": {
+          "alias": "flash"
+        }
+      },
+      "subagents": {
+        "model": "deepseek/deepseek-reasoner"
+      },
+      "workspace": "/home/danny/.openclaw/workspace"
+    },
+    "list": [
+      {
+        "default": true,
+        "id": "main",
+        "model": "anthropic/claude-opus-4-6",
+        "tools": {
+          "exec": {
+            "security": "full"
+          }
+        },
+        "workspace": "/home/danny/.openclaw/workspace"
+      },
+      {
+        "id": "jarvis",
+        "model": {
+          "fallbacks": [
+            "deepseek/deepseek-reasoner",
+            "google/gemini-3-flash"
+          ],
+          "primary": "anthropic/claude-sonnet-4-5"
+        },
+        "tools": {
+          "exec": {
+            "security": "full"
+          },
+          "profile": "coding"
+        },
+        "workspace": "/home/danny/.openclaw/workspace-jarvis"
+      },
+      {
+        "id": "jo",
+        "model": "ollama/nemotron-3-super:cloud",
+        "tools": {
+          "exec": {
+            "security": "full"
+          }
+        },
+        "workspace": "/home/danny/.openclaw/shared-house",
+        "skills": []
+      }
+    ]
+  },
+  "approvals": {
+    "exec": {
+      "enabled": true,
+      "mode": "both",
+      "targets": [
+        {
+          "channel": "telegram",
+          "to": "${DANNY_CHAT_ID}"
+        }
+      ]
+    }
+  },
+  "auth": {
+    "profiles": {
+      "google:default": {
+        "mode": "api_key",
+        "provider": "google"
+      }
+    }
+  },
+  "bindings": [
+    {
+      "agentId": "jarvis",
+      "match": {
+        "accountId": "jarvis",
+        "channel": "telegram"
+      }
+    },
+    {
+      "agentId": "jo",
+      "match": {
+        "accountId": "jo",
+        "channel": "telegram"
+      }
+    },
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "telegram"
+      }
+    }
+  ],
+  "channels": {
+    "telegram": {
+      "accounts": {
+        "default": {
+          "botToken": "${TELEGRAM_BOT_KALEL}",
+          "dmPolicy": "pairing",
+          "groupPolicy": "allowlist",
+          "streaming": {
+            "mode": "partial"
+          }
+        },
+        "jarvis": {
+          "allowFrom": [
+            "${DANNY_CHAT_ID}"
+          ],
+          "botToken": "${TELEGRAM_BOT_JARVIS}",
+          "dmPolicy": "allowlist",
+          "groupPolicy": "allowlist",
+          "streaming": {
+            "mode": "partial"
+          }
+        },
+        "jo": {
+          "botToken": "${TELEGRAM_BOT_JO}",
+          "dmPolicy": "open",
+          "groupPolicy": "allowlist",
+          "groups": {
+            "-1003839611586": {
+              "groupPolicy": "open",
+              "requireMention": false
+            }
+          },
+          "streaming": {
+            "mode": "partial"
+          },
+          "allowFrom": [
+            "${DANNY_CHAT_ID}"
+          ]
+        }
+      },
+      "botToken": "${TELEGRAM_BOT_KALEL}",
+      "dmPolicy": "pairing",
+      "enabled": true,
+      "execApprovals": {
+        "approvers": [
+          "${DANNY_CHAT_ID}"
+        ],
+        "enabled": true,
+        "target": "dm"
+      },
+      "groupPolicy": "allowlist",
+      "groups": {
+        "-1003839611586": {
+          "groupPolicy": "open",
+          "requireMention": false
+        }
+      },
+      "streaming": {
+        "mode": "partial"
+      }
+    }
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "ownerDisplay": "raw",
+    "restart": true
+  },
+  "gateway": {
+    "auth": {
+      "mode": "token",
+      "token": "${OPENCLAW_GATEWAY_TOKEN}"
+    },
+    "bind": "loopback",
+    "controlUi": {
+      "allowedOrigins": [
+        "${TAILSCALE_CONTROL_UI_URL}"
+      ]
+    },
+    "mode": "local",
+    "nodes": {
+      "denyCommands": [
+        "camera.snap",
+        "camera.clip",
+        "screen.record",
+        "contacts.add",
+        "calendar.add",
+        "reminders.add",
+        "sms.send"
+      ]
+    },
+    "port": 18789,
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    }
+  },
+  "hooks": {
+    "internal": {
+      "enabled": true,
+      "entries": {
+        "command-logger": {
+          "enabled": true
+        },
+        "session-memory": {
+          "enabled": true
+        }
+      }
+    }
+  },
+  "meta": {
+    "lastTouchedAt": "2026-05-13T14:28:14.378Z",
+    "lastTouchedVersion": "2026.5.7"
+  },
+  "models": {
+    "providers": {
+      "ollama": {
+        "api": "ollama",
+        "apiKey": "ollama-local",
+        "baseUrl": "http://127.0.0.1:11434",
+        "models": [
+          {
+            "contextWindow": 32768,
+            "cost": {
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "input": 0,
+              "output": 0
+            },
+            "id": "qwen2.5:1.5b",
+            "input": [
+              "text"
+            ],
+            "name": "qwen2.5:1.5b"
+          }
+        ]
+      }
+    }
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "skills": {
+    "install": {
+      "nodeManager": "npm"
+    },
+    "entries": {
+      "1password": {
+        "enabled": false
+      },
+      "apple-notes": {
+        "enabled": false
+      },
+      "apple-reminders": {
+        "enabled": false
+      },
+      "bear-notes": {
+        "enabled": false
+      },
+      "blogwatcher": {
+        "enabled": false
+      },
+      "blucli": {
+        "enabled": false
+      },
+      "bluebubbles": {
+        "enabled": false
+      },
+      "camsnap": {
+        "enabled": false
+      },
+      "coding-agent": {
+        "enabled": false
+      },
+      "discord": {
+        "enabled": false
+      },
+      "eightctl": {
+        "enabled": false
+      },
+      "gifgrep": {
+        "enabled": false
+      },
+      "goplaces": {
+        "enabled": false
+      },
+      "himalaya": {
+        "enabled": false
+      },
+      "imsg": {
+        "enabled": false
+      },
+      "mcporter": {
+        "enabled": false
+      },
+      "model-usage": {
+        "enabled": false
+      },
+      "nano-pdf": {
+        "enabled": false
+      },
+      "notion": {
+        "enabled": false
+      },
+      "obsidian": {
+        "enabled": false
+      },
+      "openai-whisper": {
+        "enabled": false
+      },
+      "openai-whisper-api": {
+        "enabled": false
+      },
+      "openhue": {
+        "enabled": false
+      },
+      "oracle": {
+        "enabled": false
+      },
+      "ordercli": {
+        "enabled": false
+      },
+      "peekaboo": {
+        "enabled": false
+      },
+      "sag": {
+        "enabled": false
+      },
+      "session-logs": {
+        "enabled": false
+      },
+      "sherpa-onnx-tts": {
+        "enabled": false
+      },
+      "slack": {
+        "enabled": false
+      },
+      "songsee": {
+        "enabled": false
+      },
+      "sonoscli": {
+        "enabled": false
+      },
+      "spotify-player": {
+        "enabled": false
+      },
+      "summarize": {
+        "enabled": false
+      },
+      "things-mac": {
+        "enabled": false
+      },
+      "trello": {
+        "enabled": false
+      },
+      "video-frames": {
+        "enabled": false
+      },
+      "voice-call": {
+        "enabled": false
+      },
+      "xurl": {
+        "enabled": false
+      }
+    }
+  },
+  "tools": {
+    "elevated": {
+      "allowFrom": {
+        "telegram": [
+          "${DANNY_CHAT_ID}"
+        ]
+      },
+      "enabled": true
+    },
+    "profile": "coding",
+    "sessions": {
+      "visibility": "all"
+    },
+    "web": {
+      "fetch": {
+        "enabled": true
+      },
+      "search": {
+        "enabled": true,
+        "provider": "tavily"
+      }
+    }
+  },
+  "wizard": {
+    "lastRunAt": "2026-05-13T14:28:14.079Z",
+    "lastRunCommand": "doctor",
+    "lastRunMode": "local",
+    "lastRunVersion": "2026.5.7"
+  },
+  "plugins": {
+    "allow": [
+      "telegram",
+      "tavily",
+      "anthropic",
+      "brave",
+      "memory-core",
+      "openai",
+      "deepseek",
+      "google",
+      "ollama"
+    ],
+    "entries": {
+      "anthropic": {
+        "enabled": true
+      },
+      "brave": {
+        "config": {
+          "webSearch": {
+            "apiKey": "${BRAVE_API_KEY}"
+          }
+        },
+        "enabled": true
+      },
+      "deepseek": {
+        "enabled": true
+      },
+      "google": {
+        "enabled": true
+      },
+      "ollama": {
+        "enabled": true
+      },
+      "openai": {
+        "enabled": true
+      },
+      "tavily": {
+        "config": {
+          "webSearch": {
+            "apiKey": "${TAVILY_API_KEY}"
+          }
+        },
+        "enabled": true
+      },
+      "telegram": {
+        "enabled": true
+      }
+    },
+    "bundledDiscovery": "compat"
+  },
+  "messages": {
+    "groupChat": {
+      "visibleReplies": "automatic"
+    }
+  }
+}

@@ -1,0 +1,109 @@
+# ============================================================
+# OpenClaw (jarvis-openclaw) — Production .gitignore
+# Last reviewed: 2026-05-17
+# ============================================================
+
+# === Credentials & secrets ===
+.env
+*.env
+!.env.example
+ha-token.txt
+*.pre-scrub
+credentials/
+identity/
+exec-approvals.json
+gateway.systemd.env
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.crt
+*.cer
+*.csr
+.secret-patterns
+.secret-replacements
+
+# === OpenClaw config backups (auto-created, may contain plaintext credentials) ===
+openclaw.json.*
+
+# === Removed integrations ===
+workspace-wa/
+
+# === Session memory (contains personal session data) ===
+memory/
+**/.dreams/
+
+# === Runtime node identity & update state ===
+node.json
+update-check.json
+
+# === Runtime state (personal data or ephemeral) ===
+**/state/escalations.json
+**/state/subscriptions.json
+**/state/home-pulse.json
+power-report-weekly.txt
+house_tasks.json
+reminders.json
+
+# === Workspace runtime ===
+**/.openclaw/
+**/workspace-state.json
+
+# === OpenClaw runtime directories ===
+agents/
+completions/
+logs/
+telegram/
+delivery-queue/
+tasks/
+canvas/
+cron/
+devices/
+flows/
+media/
+nodes/
+npm/
+plugin-skills/
+plugins/
+qqbot/
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+.eggs/
+*.egg-info/
+*.egg
+dist/
+build/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# === Node.js ===
+node_modules/
+
+# === Auth tokens & session files ===
+*.pickle
+*.token
+*.cookies
+
+# === IDE / editor ===
+.vscode/
+.idea/
+*.code-workspace
+
+# === OS ===
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Personal profile & PII (agents read from filesystem, not git)
+**/USER.md
+workspace/SOUL.md

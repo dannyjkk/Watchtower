@@ -1,0 +1,313 @@
+{
+  "views": [
+    {
+      "title": "Live",
+      "path": "live",
+      "type": "sections",
+      "sections": [
+        {
+          "cards": [
+            { "type": "heading", "heading": "Today's habits" },
+            {
+              "type": "grid",
+              "columns": 2,
+              "square": false,
+              "cards": [
+                {
+                  "type": "tile",
+                  "entity": "binary_sensor.jarvis_gym_status_view",
+                  "name": "Gym",
+                  "icon": "mdi:dumbbell",
+                  "tap_action": { "action": "more-info" }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.jarvis_guitar_view",
+                  "name": "Guitar",
+                  "icon": "mdi:guitar-acoustic",
+                  "tap_action": { "action": "more-info" }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.phone_screen_time_total",
+                  "name": "Screen time",
+                  "icon": "mdi:cellphone",
+                  "tap_action": { "action": "more-info" }
+                },
+                {
+                  "type": "tile",
+                  "entity": "binary_sensor.jarvis_phone_late_view",
+                  "name": "Phone off 11:30",
+                  "icon": "mdi:cellphone-off",
+                  "tap_action": { "action": "more-info" }
+                },
+                {
+                  "type": "tile",
+                  "entity": "binary_sensor.jarvis_tasks_view",
+                  "name": "House tasks",
+                  "icon": "mdi:clipboard-check",
+                  "color": "green",
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "script.mark_tasks_done"
+                  },
+                  "hold_action": { "action": "more-info" }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.garmin_connect_steps",
+                  "name": "Steps",
+                  "icon": "mdi:shoe-print",
+                  "tap_action": { "action": "more-info" }
+                },
+                {
+                  "type": "markdown",
+                  "content": "{% set zone = states('sensor.demerit_zone') | trim %}\n{% if zone == 'red' %}<center><b><font color=\"#e53935\">RED ZONE</font></b></center>\n{% elif zone == 'orange' %}<center><b><font color=\"#fb8c00\">ORANGE ZONE</font></b></center>\n{% elif zone == 'yellow' %}<center><b><font color=\"#fdd835\">YELLOW ZONE</font></b></center>\n{% elif zone == 'green' %}<center><b><font color=\"#43a047\">GREEN ZONE</font></b></center>\n{% endif %}"
+                }
+              ],
+              "grid_options": { "rows": "auto" }
+            }
+          ]
+        },
+        {
+          "cards": [
+            { "type": "heading", "heading": "Points & blocks" },
+            {
+              "type": "gauge",
+              "entity": "sensor.jarvis_demerit_points_view",
+              "name": "Punishment Zone",
+              "min": 0,
+              "max": 12,
+              "needle": true,
+              "segments": [
+                { "from": 0, "color": "#e53935" },
+                { "from": 3, "color": "#fb8c00" },
+                { "from": 6, "color": "#fdd835" },
+                { "from": 9, "color": "#43a047" }
+              ],
+              "grid_options": { "columns": 6, "rows": "auto" }
+            },
+            {
+              "type": "markdown",
+              "content": "{% set zone = states('sensor.demerit_zone') | trim %}\n{% set pts = states('input_number.demerit_points') | int(0) %}\n{% set exempt = is_state('input_boolean.exemption_today', 'on') %}\n\n{% if exempt %}\n🛋️ **Exemption day — all blocks lifted.** Everything accessible. Rules return at midnight.\n{% elif zone == 'green' %}\n✅ **Nothing blocked.** You're at **{{ pts }}/12** — full access.\n{% elif zone == 'yellow' %}\n🟡 **Yellow zone — blocked:** YouTube, Instagram\n\n🟢 **Still allowed:** Netflix, Prime, JioHotstar, Brave\n\nYou're at **{{ pts }}/12**. Reach **9** for full access ({{ 9 - pts }} more pts).\n{% elif zone == 'orange' %}\n🟠 **Orange zone — blocked:** YouTube, Instagram, Netflix, Prime\n\n🟢 **Still allowed:** JioHotstar, Brave, WhatsApp, work apps\n\nYou're at **{{ pts }}/12**. Reach **6** for yellow ({{ 6 - pts }} pts), **9** for green.\n{% elif zone == 'red' %}\n🔴 **Red zone — blocked:** YouTube, Instagram, Netflix, Prime, JioHotstar\n\n🟢 **Still allowed:** Brave, WhatsApp, work apps\n\nYou're at **{{ pts }}/12**. Reach **3** for orange ({{ 3 - pts }} pts), **6** for yellow.\n{% endif %}\n\n_WhatsApp CDN, Brave, work apps always allowed._",
+              "grid_options": { "columns": 6, "rows": "auto" }
+            }
+          ]
+        },
+        {
+          "cards": [
+            { "type": "heading", "heading": "Day controls & exemptions" },
+            {
+              "type": "grid",
+              "columns": 2,
+              "square": false,
+              "cards": [
+                {
+                  "type": "tile",
+                  "entity": "input_boolean.jarvis_holiday_today",
+                  "name": "Holiday",
+                  "icon": "mdi:beach",
+                  "color": "amber",
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "script.jarvis_mark_holiday_today"
+                  },
+                  "hold_action": { "action": "more-info" }
+                },
+                {
+                  "type": "tile",
+                  "entity": "input_boolean.exemption_today",
+                  "name": "Exemption",
+                  "icon": "mdi:sleep",
+                  "color": "purple",
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "script.mark_exemption_today"
+                  },
+                  "hold_action": { "action": "more-info" }
+                },
+                {
+                  "type": "tile",
+                  "entity": "binary_sensor.jarvis_relaxed_day",
+                  "name": "Relaxed day",
+                  "icon": "mdi:weather-sunny",
+                  "color": "orange",
+                  "tap_action": { "action": "more-info" }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.jarvis_screen_limit_today",
+                  "name": "Screen limit",
+                  "icon": "mdi:cellphone-arrow-down",
+                  "tap_action": { "action": "more-info" }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.jarvis_exemption_days_view",
+                  "name": "Days left",
+                  "icon": "mdi:calendar-check",
+                  "color": "amber",
+                  "tap_action": { "action": "more-info" }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.jarvis_overflow_points_view",
+                  "name": "Overflow",
+                  "icon": "mdi:counter",
+                  "color": "teal",
+                  "tap_action": { "action": "more-info" }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Screen time & System",
+              "heading_style": "title"
+            },
+            {
+              "type": "entities",
+              "entities": [
+                { "entity": "sensor.jarvis_youtube_view", "name": "YouTube", "icon": "mdi:youtube" },
+                { "entity": "sensor.jarvis_instagram_view", "name": "Instagram", "icon": "mdi:instagram" },
+                { "entity": "sensor.jarvis_netflix_view", "name": "Netflix", "icon": "mdi:netflix" },
+                { "entity": "sensor.jarvis_prime_view", "name": "Prime Video", "icon": "mdi:video" },
+                { "entity": "sensor.jarvis_hotstar_view", "name": "JioHotstar", "icon": "mdi:star-circle" },
+                { "entity": "sensor.jarvis_brave_view", "name": "Brave", "icon": "mdi:shield-half-full" },
+                { "entity": "sensor.jarvis_screen_limit_today", "name": "Daily Limit", "icon": "mdi:timer-sand" }
+              ],
+              "grid_options": { "columns": 6, "rows": "auto" }
+            },
+            {
+              "square": false,
+              "type": "grid",
+              "columns": 1,
+              "cards": [
+                {
+                  "type": "tile",
+                  "entity": "binary_sensor.jarvis_screen_counting_active",
+                  "name": "Screen counting",
+                  "icon": "mdi:wifi-check",
+                  "tap_action": { "action": "more-info" }
+                },
+                {
+                  "type": "tile",
+                  "entity": "switch.adguard_home_filtering_2",
+                  "name": "AdGuard filter",
+                  "icon": "mdi:shield-check",
+                  "color": "red",
+                  "tap_action": { "action": "more-info" },
+                  "hold_action": {
+                    "action": "toggle",
+                    "confirmation": {
+                      "text": "Toggle AdGuard filtering? Turning OFF disables all punishment blocks silently."
+                    }
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.jarvis_minutes_since_tasker_poll",
+                  "name": "Tasker poll",
+                  "icon": "mdi:cellphone-wireless",
+                  "tap_action": { "action": "more-info" }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.jarvis_minutes_since_adguard_sync",
+                  "name": "AdGuard sync",
+                  "icon": "mdi:shield-sync",
+                  "tap_action": { "action": "more-info" }
+                }
+              ],
+              "grid_options": { "columns": 6, "rows": "auto" }
+            },
+            { "type": "heading", "heading": "Tunables" },
+            {
+              "square": false,
+              "type": "grid",
+              "columns": 2,
+              "cards": [
+                { "type": "tile", "entity": "input_number.jarvis_screen_limit_normal", "name": "Normal limit", "icon": "mdi:cellphone-arrow-down", "tap_action": { "action": "more-info" } },
+                { "type": "tile", "entity": "input_number.jarvis_screen_limit_relaxed", "name": "Relaxed limit", "icon": "mdi:cellphone-arrow-down", "color": "orange", "tap_action": { "action": "more-info" } },
+                { "type": "tile", "entity": "input_number.jarvis_gym_min_minutes", "name": "Gym min", "icon": "mdi:dumbbell", "tap_action": { "action": "more-info" } },
+                { "type": "tile", "entity": "input_number.jarvis_guitar_target_minutes", "name": "Guitar target", "icon": "mdi:guitar-acoustic", "tap_action": { "action": "more-info" } },
+                { "type": "tile", "entity": "input_number.jarvis_points_max", "name": "Points max", "icon": "mdi:counter", "tap_action": { "action": "more-info" } },
+                { "type": "tile", "entity": "input_number.jarvis_points_per_exemption", "name": "Pts/exemption", "icon": "mdi:sleep", "color": "purple", "tap_action": { "action": "more-info" } },
+                { "type": "tile", "entity": "input_number.jarvis_steps_target", "name": "Steps target", "icon": "mdi:shoe-print", "tap_action": { "action": "more-info" } }
+              ]
+            }
+          ],
+          "column_span": 1
+        },
+        {
+          "cards": [
+            { "type": "heading", "heading": "Quick Guide" },
+            {
+              "type": "markdown",
+              "content": "### Today's habits\n**Gym** — ✅ if ≥ min minutes logged, ❌ otherwise · **Guitar** — minutes practiced (target in tunables) · **Screen time** — total phone screen-on time · **Phone off 11:30** — ✅ if phone screen was off by 11:30 PM · **House tasks** — tap to mark done; ✅ once marked · **Steps** — daily step count from Garmin Connect\n\n### Points & zones\nGauge shows demerit points (0–12), higher is better.\n- 🟢 **Green (9–12):** nothing blocked\n- 🟡 **Yellow (6–8):** YouTube, Instagram blocked\n- 🟠 **Orange (3–5):** + Netflix, Prime\n- 🔴 **Red (0–2):** + JioHotstar\n\nPoints are updated nightly at **11:20 PM IST** based on habit performance. Zone changes trigger an AdGuard DNS sync that blocks/unblocks sites on your phone (client: <YOUR_PHONE_CLIENT_NAME>). Brave, WhatsApp & work apps are always allowed.\n\n### Scoring\n| Habit | Hit | Miss |\n|---|---|---|\n| Gym | +1 | −2 |\n| Guitar | +1 | −1 |\n| Screen | +1 | −2 |\n| Tasks | +1 | 0 |\n| Steps | +2 | 0 |\n\nSteps is a **bonus-only** habit — hitting the target (default 8000, configurable) earns +2, but missing it costs nothing. All other habits have penalties. Total delta range per day: −5 to +6.\n\n### Overflow & exemptions\nWhen points exceed 12, the excess flows into **Overflow**. Once overflow reaches **6 pts** (configurable in tunables), it auto-converts into **+1 exemption day** — no manual action needed. Remainder carries over toward the next exemption.\n\n**Using an exemption:** tap the Exemption tile to activate. All blocks are lifted for the day and no point deductions are applied at tonight's eval. Habit data is still recorded for reference. Exemption days decrease by 1.\n\n### Day controls\n**Holiday** — tap to mark today as a holiday (relaxes screen limit to the higher relaxed cap). Weekends are automatically relaxed days. · **Relaxed day** — read-only indicator, auto-ON on weekends or when Holiday is toggled on. · **Screen limit** — today's calculated screen time cap (normal or relaxed). · **Days left** — remaining exemption days before needing to earn more via overflow. · **Overflow** — accumulated bonus points above the 12-pt cap.\n\n### Tile interactions\n- **Gym, Guitar, Screen time, Phone off 11:30, Steps** — tap for more info (history/details)\n- **House tasks** — tap to mark done (runs script), hold for more info\n- **Holiday** — tap to toggle (runs script), hold for more info\n- **Exemption** — tap to activate (runs script), hold for more info\n- **AdGuard filter** — tap for more info, hold to toggle (with confirmation prompt)\n\n### System & tunables\n**Screen counting** — ✅ if Tasker is actively reporting screen data from your phone. · **AdGuard filter** — master on/off for DNS blocking. Disabling lifts ALL punishment blocks silently. · **Tasker poll** — minutes since phone last sent screen data. · **AdGuard sync** — minutes since block rules were last pushed to AdGuard.\n\n**Tunables (tap to edit):**\n- **Normal screen limit** — max screen time on weekdays (minutes)\n- **Relaxed screen limit** — max screen time on weekends/holidays (minutes)\n- **Gym min minutes** — minimum gym session length to count as done\n- **Guitar target** — minutes of practice needed to earn the guitar point\n- **Steps target** — daily step goal for the +2 bonus (default 8000)\n- **Points max** — ceiling for demerit points (default 12)\n- **Pts per exemption** — overflow points needed to earn 1 exemption day (default 6)\n\n### Timing\n- **11:20 PM** — nightly eval runs: computes deltas, updates points/overflow/exemptions, logs to calendar, sends Telegram report\n- **11:30 PM** — phone bedtime cutoff\n- **Midnight** — daily trackers reset for the new day",
+              "grid_options": { "columns": 36, "rows": "auto" }
+            }
+          ],
+          "column_span": 2,
+          "background": { "color": "teal", "opacity": 11 }
+        }
+      ],
+      "max_columns": 3
+    },
+    {
+      "title": "Historical",
+      "path": "historical",
+      "type": "sections",
+      "max_columns": 2,
+      "sections": [
+        {
+          "cards": [
+            { "type": "heading", "heading": "Demerit Points Trend" },
+            {
+              "type": "history-graph",
+              "hours_to_show": 720,
+              "entities": [
+                { "entity": "input_number.demerit_points", "name": "Points" }
+              ]
+            }
+          ]
+        },
+        {
+          "cards": [
+            { "type": "heading", "heading": "Daily Habit Results" },
+            {
+              "type": "history-graph",
+              "hours_to_show": 720,
+              "entities": [
+                { "entity": "input_number.daily_gym_result", "name": "Gym" },
+                { "entity": "input_number.daily_guitar_result", "name": "Guitar" },
+                { "entity": "input_number.daily_screen_result", "name": "Screen" },
+                { "entity": "input_number.daily_tasks_result", "name": "Tasks" },
+                { "entity": "input_number.daily_total_delta", "name": "Total Delta" },
+                { "entity": "input_number.daily_steps_result", "name": "Steps" }
+              ]
+            }
+          ]
+        },
+        {
+          "cards": [
+            { "type": "heading", "heading": "Habit Log" },
+            { "type": "calendar", "entities": ["calendar.habit_log"] }
+          ]
+        },
+        {
+          "cards": [
+            { "type": "heading", "heading": "Quick Guide" },
+            {
+              "type": "markdown",
+              "content": "### Points Trend\n30-day graph of demerit point balance. Rising = good habits, falling = missed. Points are capped at 12 — excess goes to overflow (not visible on this graph).\n\n### Daily Habit Results\nNightly point deltas per habit over 30 days:\n- **Gym:** +1 (done) / −2 (missed)\n- **Guitar:** +1 (target met) / −1 (skipped)\n- **Screen:** +1 (under limit) / −2 (over limit)\n- **Tasks:** +1 (done) / 0 (skipped)\n- **Steps:** +2 (target met) / 0 (missed) — bonus only, no penalty\n- **Total Delta:** net daily point change across all habits (range: −5 to +6)\n\nOn exemption days, deltas are recorded for reference but not applied to points.\n\n### Habit Log\nCalendar of nightly snapshots. Tap any date to see the full breakdown: individual habit results, per-app screen time, steps, points before → after, overflow, exemption days remaining, and current zone."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

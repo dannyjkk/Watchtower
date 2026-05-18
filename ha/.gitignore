@@ -1,0 +1,86 @@
+# ============================================================
+# Home Assistant (jarvis-ha) — Production .gitignore
+# Last reviewed: 2026-05-17
+# ============================================================
+
+# === Secrets & credentials ===
+secrets.yaml
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.csr
+
+# === Environment files (if any end up here) ===
+.env
+*.env
+
+# === Pre-commit secret patterns (contains credential fragments) ===
+.secret-patterns
+
+# === Internal storage (auth tokens, GPS, device keys, passwords) ===
+.storage/
+.cloud/
+
+# === Database (large, contains state history with personal data) ===
+*.db
+*.db-shm
+*.db-wal
+
+# === Logs ===
+home-assistant.log*
+OZW_Log.txt
+
+# === Runtime / generated ===
+tts/
+.HA_VERSION
+.uuid
+.ha_run.lock
+backups/
+deps/
+.cache/
+blueprints/
+
+# === Network / security state ===
+ip_bans.yaml
+
+# === Integration credential / session files ===
+.google.token
+.google_maps_location_sharing.cookies
+*.pickle
+*.token
+*.cookies
+
+# === Addon data (may contain VPN keys, session state) ===
+addons/
+addon_configs/
+addons_autoscripts/
+
+# === Google Find My (auth tokens, device cache) ===
+googlefindmytools/
+
+# === Custom components (HACS-managed, can be reinstalled) ===
+custom_components/
+
+# === Frontend cache ===
+www/community/
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# === IDE / editor ===
+.vscode/
+.idea/
+
+# === OS ===
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~

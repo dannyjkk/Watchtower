@@ -1,0 +1,19 @@
+{
+  "home_pulse": true,
+  "thought_catcher": true,
+  "inbox_intel": true,
+  "smart_reminders": true,
+  "pantry_brain": false,
+  "subscription_sentinel": true,
+  "daily_brief": true,
+  "notes": {
+    "home_pulse": "HA integration - plain-English status, anomaly flagging. ON-DEMAND ONLY: no scheduled watcher, responds when Danny asks directly",
+    "thought_catcher": "Google Tasks triage & cleanup. SCHEDULED: daily 08:30 before Morning Brief. Cleans up garbled voice-dictated task titles and moves tasks to correct list (Daily/Weekly/Monthly)",
+    "inbox_intel": "Gmail reading, action items, time-sensitive thread flagging. ON-DEMAND ONLY: no scheduled watcher, responds when Danny asks directly",
+    "smart_reminders": "Context-aware reminders (not just time-based)",
+    "pantry_brain": "Grocery inventory - DISABLED, state file removed May 6",
+    "subscription_sentinel": "Renewal tracking, price changes, unused flagging",
+    "daily_brief": "Morning summary from all active modules"
+  },
+  "last_updated": "2026-05-13T21:35:00+05:30"
+}

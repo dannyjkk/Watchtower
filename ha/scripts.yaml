@@ -1,0 +1,287 @@
+clean_maria_s_bedroom:
+  sequence:
+  - action: vacuum.clean_area
+    metadata: {}
+    target:
+      device_id: 908dfaf1cf4dd55bc7620b6a46a549ee
+    data:
+      cleaning_area_id:
+      - maria_s_bedroom
+  alias: Clean Maria's bedroom
+  description: ''
+clean_studyroom:
+  sequence:
+  - action: vacuum.clean_area
+    metadata: {}
+    target:
+      device_id: 908dfaf1cf4dd55bc7620b6a46a549ee
+    data:
+      cleaning_area_id:
+      - study_room
+  alias: Clean Studyroom
+  description: ''
+clean_master_bedroom:
+  sequence:
+  - action: vacuum.clean_area
+    metadata: {}
+    target:
+      device_id: 908dfaf1cf4dd55bc7620b6a46a549ee
+    data:
+      cleaning_area_id:
+      - bedroom
+  alias: Clean Master Bedroom
+  description: ''
+mark_exemption_today:
+  alias: Mark Exemption Today
+  description: Declares today as an exemption day. Decrements exemption_days by 1,
+    turns on exemption_today, and if the nightly eval already ran (after 23:20), automatically
+    restores points from the pre-eval snapshot.
+  fields: {}
+  icon: mdi:calendar-check
+  mode: single
+  sequence:
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: input_boolean.exemption_today
+        state: 'on'
+      sequence:
+      - data:
+          message: ⚠️ Today is already marked as an exemption day. No change.
+        action: rest_command.jarvis_send_message
+      - stop: Already exempt today
+    - conditions:
+      - above: -1
+        below: 1
+        condition: numeric_state
+        entity_id: input_number.exemption_days
+      sequence:
+      - data:
+          message: '⚠️ No exemption days left. Can''t exempt today. Earn more: every
+            6 points past the 12 cap converts to 1 exemption day.'
+        action: rest_command.jarvis_send_message
+      - stop: No exemption days available
+  - target:
+      entity_id: input_boolean.exemption_today
+    action: input_boolean.turn_on
+  - variables:
+      remaining: '{{ states(''input_number.exemption_days'') | int(0) - 1 }}'
+  - data:
+      value: '{{ remaining }}'
+    target:
+      entity_id: input_number.exemption_days
+    action: input_number.set_value
+  - data:
+      message: "\U0001F6CB️ *Exemption day declared.*\n\nNo demerits will be applied
+        tonight. Screen time warnings paused. Late phone check paused.\n\n\U0001F513
+        *AdGuard blocks lifted for the day* — full access until midnight, then blocks
+        return based on actual points.\n\nExemption days remaining: {{ remaining }}"
+    action: rest_command.jarvis_send_message
+  - if:
+    - condition: template
+      value_template: '{{ now().hour > 23 or (now().hour == 23 and now().minute >=
+        20) }}'
+    then:
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.demerit_points
+      data:
+        value: '{{ states(''input_number.pre_eval_points'') | int(states(''input_number.demerit_points'')
+          | int(0)) }}'
+    - data:
+        message: "\U0001F504 *Points restored.* Tonight's eval already ran, so I've
+          rolled back your points to {{ states('input_number.pre_eval_points') | int(states('input_number.demerit_points')
+          | int(0)) }}."
+      action: rest_command.jarvis_send_message
+jarvis_sync_adguard_rules:
+  alias: Jarvis - Sync AdGuard Rules
+  description: 'Single source of truth for AdGuard custom rules. Reads sensor.demerit_zone
+    AND input_boolean.exemption_today, computes effective zone (green if exempt, else
+    the actual zone), builds the corresponding per-client custom filtering rules from
+    inline domain lists, pushes via rest_command.adguard_set_custom_rules. EXEMPTION
+    OVERRIDE: when exemption_today is on, effective zone is forced to green regardless
+    of points — all blocks lifted for the day. Idempotent. Update domain lists in
+    this script''s variables to change blocked sites; allow_patterns for carve-outs
+    (e.g. WhatsApp CDN). Updates input_datetime.jarvis_last_adguard_sync on every
+    run. Also updates input_boolean.adguard_blocked to reflect effective zone.'
+  fields: {}
+  icon: mdi:shield-sync
+  max: 5
+  mode: queued
+  sequence:
+  - variables:
+      always_allow_patterns:
+      - /whatsapp-cdn.*\.fbcdn\.net/
+      client_name: Danny S23
+      orange_additions:
+      - netflix.com
+      - nflxvideo.net
+      - nflxext.com
+      - primevideo.com
+      - amazonvideo.com
+      - aiv-cdn.net
+      - aiv-delivery.net
+      red_additions:
+      - hotstar.com
+      - hotstarext.com
+      - jiohotstar.com
+      - disneyplus.com
+      - disney-plus.net
+      - dssott.com
+      yellow_domains:
+      - youtube.com
+      - ytimg.com
+      - googlevideo.com
+      - youtu.be
+      - instagram.com
+      - cdninstagram.com
+      - fbcdn.net
+      zone: '{% if is_state(''input_boolean.exemption_today'', ''on'') %}green{% else
+        %}{{ states(''sensor.demerit_zone'') | trim }}{% endif %}'
+  - action: rest_command.adguard_set_custom_rules
+    data:
+      rules: '{% set domains = (yellow_domains + orange_additions + red_additions)
+        if zone == ''red'' else ((yellow_domains + orange_additions) if zone == ''orange''
+        else (yellow_domains if zone == ''yellow'' else [])) %}{% set block_rules
+        = domains | map(''regex_replace'', ''^(.+)$'', ''||\\1^$client='' + "''" +
+        client_name + "''") | list %}{% set allow_rules = always_allow_patterns |
+        map(''regex_replace'', ''^(.+)$'', ''@@\\1$client='' + "''" + client_name
+        + "''") | list %}{{ (block_rules + allow_rules) if block_rules else [] }}'
+  - action: input_datetime.set_datetime
+    target:
+      entity_id: input_datetime.jarvis_last_adguard_sync
+    data:
+      timestamp: '{{ now().timestamp() }}'
+  - if:
+    - condition: template
+      value_template: '{{ zone != ''green'' }}'
+    then:
+    - action: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.adguard_blocked
+    else:
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.adguard_blocked
+jarvis_compute_daily_eval:
+  alias: Jarvis - Compute Daily Eval
+  description: 'PURE FUNCTION. Reads habit state + tunable thresholds, returns scoring
+    deltas + a snapshot via response_variable ''eval_result''. Does NOT mutate any
+    points. Caller (nightly automation) decides what to do with the result. Test manually
+    via ha_call_service(''script'',''jarvis_compute_daily_eval'', return_response=True).
+    DEFAULTS: current_pts defaults to 0 if input_number.demerit_points is unavailable
+    — fail-loud over fail-silent so a broken state surfaces immediately as red zone
+    instead of pretending everything is fine.'
+  icon: mdi:calculator-variant
+  mode: single
+  fields: {}
+  sequence:
+  - variables:
+      current_pts: '{{ states(''input_number.demerit_points'') | int(0) }}'
+      guitar_min: '{{ states(''input_number.phone_guitar_usage'') | int(0) }}'
+      guitar_target: '{{ states(''input_number.jarvis_guitar_target_minutes'') | int(20)
+        }}'
+      gym_done: '{{ is_state(''input_boolean.gym_visited_today'', ''on'') }}'
+      screen_limit: '{{ states(''sensor.jarvis_screen_limit_today'') | int(120) }}'
+      screen_total: '{{ states(''sensor.phone_screen_time_total'') | int(0) }}'
+      is_relaxed_day: '{{ is_state(''binary_sensor.jarvis_relaxed_day'', ''on'') }}'
+      tasks_done: '{{ is_state(''input_boolean.tasks_completed_today'', ''on'') }}'
+      steps_count: '{{ states(''sensor.garmin_connect_steps'') | int(0) }}'
+      steps_target: '{{ states(''input_number.jarvis_steps_target'') | int(8000) }}'
+  - variables:
+      guitar_done: '{{ guitar_min | int >= guitar_target | int }}'
+      screen_ok: '{{ screen_total | int <= screen_limit | int }}'
+      steps_done: '{{ steps_count | int >= steps_target | int }}'
+  - variables:
+      guitar_delta: '{{ 1 if guitar_done else -1 }}'
+      gym_delta: '{{ 1 if gym_done else -2 }}'
+      screen_delta: '{{ 1 if screen_ok else -2 }}'
+      tasks_delta: '{{ 1 if tasks_done else 0 }}'
+      steps_delta: '{{ 2 if steps_done else 0 }}'
+  - variables:
+      eval_result:
+        current_pts: '{{ current_pts | int }}'
+        gym_done: '{{ gym_done }}'
+        gym_delta: '{{ gym_delta | int }}'
+        guitar_min: '{{ guitar_min | int }}'
+        guitar_done: '{{ guitar_done }}'
+        guitar_delta: '{{ guitar_delta | int }}'
+        screen_total: '{{ screen_total | int }}'
+        screen_limit: '{{ screen_limit | int }}'
+        screen_ok: '{{ screen_ok }}'
+        screen_delta: '{{ screen_delta | int }}'
+        tasks_done: '{{ tasks_done }}'
+        tasks_delta: '{{ tasks_delta | int }}'
+        total_delta: '{{ gym_delta | int + guitar_delta | int + screen_delta | int
+          + tasks_delta | int + steps_delta | int }}'
+        would_be_pts: '{{ current_pts | int + gym_delta | int + guitar_delta | int
+          + screen_delta | int + tasks_delta | int + steps_delta | int }}'
+        is_relaxed_day: '{{ is_relaxed_day }}'
+        breakdown:
+          youtube: '{{ states(''input_number.phone_youtube_usage'') | int(0) }}'
+          instagram: '{{ states(''input_number.phone_instagram_usage'') | int(0) }}'
+          netflix: '{{ states(''input_number.phone_netflix_usage'') | int(0) }}'
+          prime: '{{ states(''input_number.phone_prime_video_usage'') | int(0) }}'
+          jiohotstar: '{{ states(''input_number.phone_jiohotstar_usage'') | int(0)
+            }}'
+          brave: '{{ states(''input_number.phone_brave_usage'') | int(0) }}'
+        steps_count: '{{ steps_count | int }}'
+        steps_target: '{{ steps_target | int }}'
+        steps_done: '{{ steps_done }}'
+        steps_delta: '{{ steps_delta | int }}'
+  - stop: Eval complete
+    response_variable: eval_result
+jarvis_mark_holiday_today:
+  alias: Jarvis - Mark Holiday Today
+  description: Manually mark today as a holiday. Soft-day rules apply (relaxed screen
+    time limit). Auto-clears at midnight. Companion to mark_exemption_today.
+  fields: {}
+  icon: mdi:beach
+  mode: single
+  sequence:
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: input_boolean.jarvis_holiday_today
+        state: 'on'
+      sequence:
+      - action: rest_command.jarvis_send_message
+        data:
+          message: "\U0001F3D6️ Today is already marked as a holiday. No change."
+      - stop: Already a holiday
+  - action: input_boolean.turn_on
+    target:
+      entity_id: input_boolean.jarvis_holiday_today
+  - action: rest_command.jarvis_send_message
+    data:
+      message: "\U0001F3D6️ *Holiday declared.*\n\nSoft-day rules active:\n• Screen
+        time limit: {{ states('input_number.jarvis_screen_limit_relaxed') | int(210)
+        }} min (instead of {{ states('input_number.jarvis_screen_limit_normal') |
+        int(120) }})\n• All other rules unchanged (gym, guitar, late phone still tracked)\n\nAuto-clears
+        at midnight."
+mark_tasks_done:
+  alias: Mark Tasks Done
+  description: Confirms house tasks done today. Refuses if already on (idempotent).
+    Sends Telegram confirmation. Called by Jarvis routing when user replies the bare-word
+    trigger `tasks_done` (no leading slash — slash conflicts with OpenClaw built-ins
+    per JARVIS_CLAUDE_CONTRACT §3.5).
+  fields: {}
+  icon: mdi:clipboard-check
+  mode: single
+  sequence:
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: input_boolean.tasks_completed_today
+        state: 'on'
+      sequence:
+      - action: rest_command.jarvis_send_message
+        data:
+          message: ✅ House tasks already marked done for today. No change.
+      - stop: Already done
+  - action: input_boolean.turn_on
+    target:
+      entity_id: input_boolean.tasks_completed_today
+  - action: rest_command.jarvis_send_message
+    data:
+      message: ✅ *House tasks marked done.* +1 will be applied at tonight's eval.
