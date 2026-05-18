@@ -6,9 +6,9 @@ A production system where AI agents track daily habits, automate a smart home, a
 
 > **[Setup Guide](SETUP.md)** · **[Architecture](ARCHITECTURE.md)** · **[Tasker Profiles (TaskerNet)](https://taskernet.com/shares/?user=AS35m8m2eEjbtUOEvTGebDnO%2BFqCohIxCwGpphAqCnUF7DX7GnW96cp8iXIT05ZOmbPNauUrz2uTq%2FA%3D&id=Project%3AApps+Usage+To+HA)**
 
-![Habit Tracker Dashboard — Live view showing today's habits, demerit points gauge, enforcement zones, screen time breakdown, and tunables](docs/images/dashboardlive.jpg)
+![Habit Tracker Dashboard — Live view showing today's habits, demerit points gauge, enforcement zones, screen time breakdown, and tunables](docs/images/dashboardlive.png)
 
-![Habit Tracker Dashboard — Historical view showing 30-day point trends, daily habit results, and calendar log](docs/images/dashboardhistorical.jpg)
+![Habit Tracker Dashboard — Historical view showing 30-day point trends, daily habit results, and calendar log](docs/images/dashboardhistorical.png)
 
 ---
 
