@@ -50,14 +50,12 @@ The generalist. Handles research, planning, creative work, and coding assistance
 
 The accountability engine. Jarvis runs frequently and needs to be reliable, but doesn't require frontier-level reasoning. The sweet spot between capability and token cost. Monitors five daily habits, maintains a demerit point system with real enforcement, and runs six capability modules:
 
-| Module | What It Does |
-|--------|-------------|
-| Home Pulse | On-demand Home Assistant status and anomaly detection |
-| Thought Catcher | Daily Google Tasks triage — fixes garbled voice-dictated titles, sorts into lists |
-| Inbox Intel | Gmail reading, action item flagging, time-sensitive thread alerts |
-| Smart Reminders | Context-aware reminders (not just time-based) |
-| Subscription Sentinel | Tracks renewals, flags price changes, spots unused services |
-| Daily Brief | Morning summary combining all active modules |
+- **Daily Brief** — every morning, a Telegram summary of your Gmail inbox, pending Google Tasks, active reminders, and anything that needs attention today
+- **Inbox Intel** — reads Gmail throughout the day, flags action items, and alerts on time-sensitive threads so nothing slips through
+- **Thought Catcher** — voice-dictated Google Tasks often come in garbled. This cleans up the titles and sorts them into the right lists automatically every morning, 30 min before the Daily Brief
+- **Smart Reminders** — context-aware reminders that aren't just "remind me at 3 PM." They factor in what's in your inbox and calendar
+- **Subscription Sentinel** — tracks service renewals, flags price changes, and spots subscriptions you're paying for but not using
+- **Home Pulse** — on-demand snapshot of your Home Assistant setup. Sensor readings, device states, anomaly detection
 
 ### Jo — House Tasks Manager
 
