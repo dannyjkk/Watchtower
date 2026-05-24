@@ -275,7 +275,7 @@
   mode: restart
 - id: '1775409050188'
   alias: Maria's iPad — Block internet on low battery
-  description: Blocks Maria's iPad (192.168.0.41) via AdGuard when her S23 battery
+  description: Blocks Maria's iPad (<MARIAS_IPAD_IP>) via AdGuard when her S23 battery
     is below 15% and not charging. Restores when charging starts or battery goes above
     15%.
   triggers:
@@ -371,7 +371,8 @@
   alias: Jarvis - Nightly Report 11:20 PM
   description: Thin trigger at 23:20 IST. Snapshots pre-eval points, calls jarvis_compute_daily_eval,
     applies overflow + exemption math, writes new state, records daily results to
-    input_number helpers and Habit Log calendar, sends Telegram report.
+    input_number helpers and Habit Log calendar, sends Telegram report. Exemption
+    days apply reward-only scoring (positive deltas counted, penalties zeroed).
   triggers:
   - at: '23:20:00'
     platform: time
@@ -389,55 +390,100 @@
       sequence:
       - action: script.jarvis_compute_daily_eval
         response_variable: r
+      - variables:
+          fg: '{{ [0, (r.gym_delta | int)] | max }}'
+          fgu: '{{ [0, (r.guitar_delta | int)] | max }}'
+          fs: '{{ [0, (r.screen_delta | int)] | max }}'
+          ft: '{{ [0, (r.tasks_delta | int)] | max }}'
+          fst: '{{ [0, (r.steps_delta | int)] | max }}'
+      - variables:
+          filtered_total: '{{ fg + fgu + fs + ft + fst }}'
+          current_exempt: '{{ states(''input_number.exemption_days'') | int(0) }}'
+          current_overflow: '{{ states(''input_number.overflow_points'') | int(0)
+            }}'
+          points_max: '{{ states(''input_number.jarvis_points_max'') | int(12) }}'
+          points_per_exemption: '{{ states(''input_number.jarvis_points_per_exemption'')
+            | int(6) }}'
+      - variables:
+          would_be_pts: '{{ (r.current_pts | int) + filtered_total }}'
+      - variables:
+          earned_overflow: '{{ (would_be_pts - points_max) if would_be_pts > points_max
+            else 0 }}'
+          new_pts: '{{ [0, [points_max, would_be_pts] | min] | max }}'
+      - variables:
+          total_overflow: '{{ current_overflow + earned_overflow }}'
+      - variables:
+          exemptions_earned: '{{ (total_overflow / points_per_exemption) | int }}'
+          new_overflow: '{{ total_overflow % points_per_exemption }}'
+      - variables:
+          new_exemption_days: '{{ current_exempt + exemptions_earned }}'
       - action: input_number.set_value
         data:
-          value: '{{ r.gym_delta | int }}'
+          value: '{{ new_pts }}'
+        target:
+          entity_id: input_number.demerit_points
+      - action: input_number.set_value
+        data:
+          value: '{{ new_overflow }}'
+        target:
+          entity_id: input_number.overflow_points
+      - action: input_number.set_value
+        data:
+          value: '{{ new_exemption_days }}'
+        target:
+          entity_id: input_number.exemption_days
+      - action: input_number.set_value
+        data:
+          value: '{{ fg }}'
         target:
           entity_id: input_number.daily_gym_result
       - action: input_number.set_value
         data:
-          value: '{{ r.guitar_delta | int }}'
+          value: '{{ fgu }}'
         target:
           entity_id: input_number.daily_guitar_result
       - action: input_number.set_value
         data:
-          value: '{{ r.screen_delta | int }}'
+          value: '{{ fs }}'
         target:
           entity_id: input_number.daily_screen_result
       - action: input_number.set_value
         data:
-          value: '{{ r.tasks_delta | int }}'
+          value: '{{ ft }}'
         target:
           entity_id: input_number.daily_tasks_result
       - action: input_number.set_value
         data:
-          value: '{{ r.total_delta | int }}'
-        target:
-          entity_id: input_number.daily_total_delta
-      - action: input_number.set_value
-        data:
-          value: '{{ r.steps_delta | int }}'
+          value: '{{ fst }}'
         target:
           entity_id: input_number.daily_steps_result
+      - action: input_number.set_value
+        data:
+          value: '{{ filtered_total }}'
+        target:
+          entity_id: input_number.daily_total_delta
       - action: calendar.create_event
         target:
           entity_id: calendar.habit_log
         data:
-          summary: Exemption Day
+          summary: Exemption Day (+{{ filtered_total }})
           start_date: '{{ now().strftime(''%Y-%m-%d'') }}'
           end_date: '{{ (now() + timedelta(days=1)).strftime(''%Y-%m-%d'') }}'
-          description: 'Exemption day - no eval
+          description: 'Exemption day — rewards only, no penalties
 
 
-            Gym: {{ ''done'' if r.gym_done else ''not done'' }}
+            Gym: {{ ''done (+1)'' if r.gym_done else ''not done (0)'' }}
 
-            Guitar: {{ r.guitar_min }}/{{ r.guitar_target }} min
+            Guitar: {{ r.guitar_min }}/{{ r.guitar_target }} min {{ ''(+1)'' if r.guitar_done
+            else ''(0)'' }}
 
-            Screen: {{ r.screen_total }}/{{ r.screen_limit }} min
+            Screen: {{ r.screen_total }}/{{ r.screen_limit }} min {{ ''(+1)'' if r.screen_ok
+            else ''(0)'' }}
 
-            Steps: {{ r.steps_count }}/{{ r.steps_target }}
+            Steps: {{ r.steps_count }}/{{ r.steps_target }} {{ ''(+2)'' if r.steps_done
+            else ''(0)'' }}
 
-            Tasks: {{ ''done'' if r.tasks_done else ''not done'' }}
+            Tasks: {{ ''done (+1)'' if r.tasks_done else ''not done (0)'' }}
 
 
             YT {{ r.breakdown.youtube }} | IG {{ r.breakdown.instagram }} | NF {{
@@ -445,28 +491,32 @@
             }} | Brave {{ r.breakdown.brave }}
 
 
-            Points: {{ r.current_pts }}/{{ states(''input_number.jarvis_points_max'')
-            | int }} (unchanged)
+            Points: {{ r.current_pts }} > {{ new_pts }}/{{ points_max }} (+{{ filtered_total
+            }})
 
-            Exemption days: {{ states(''input_number.exemption_days'') | int }}'
+            Overflow: {{ new_overflow }}/{{ points_per_exemption }}
+
+            Exemption days: {{ new_exemption_days }}'
       - action: rest_command.jarvis_send_message
         data:
-          message: "\U0001F6CB *Exemption day — no eval tonight.*\n\nYour day at a
-            glance (no points changed):\n\n*Habits:*\nGym: {{ 'done' if r.gym_done
-            else 'not done' }}\nGuitar: {{ r.guitar_min }}/{{ r.guitar_target }} min
-            ({{ ((r.guitar_min | int / r.guitar_target | int) * 100) | round(0) |
-            int }}%)\nScreen: {{ r.screen_total }}/{{ r.screen_limit }} min ({{ ((r.screen_total
-            | int / r.screen_limit | int) * 100) | round(0) | int }}% of limit){%
-            if r.is_relaxed_day %} _(relaxed)_{% endif %}\nSteps: {{ r.steps_count
-            }}/{{ r.steps_target }} ({{ ((r.steps_count | int / r.steps_target | int)
-            * 100) | round(0) | int }}%)\nHouse tasks: {{ 'done' if r.tasks_done else
-            'not done' }}\n\n*Breakdown:*\nYT: {{ r.breakdown.youtube }} | IG: {{
-            r.breakdown.instagram }} | NF: {{ r.breakdown.netflix }}\nPrime: {{ r.breakdown.prime
-            }} | Hotstar: {{ r.breakdown.jiohotstar }} | Brave: {{ r.breakdown.brave
-            }}\n\nPoints: {{ r.current_pts }}/{{ states('input_number.jarvis_points_max')
-            | int }} (unchanged) • Exemption days left: {{ states('input_number.exemption_days')
-            | int }}"
-      - stop: Exemption day — no evaluation
+          message: "\U0001F6CB *Exemption day — rewards only, no penalties.*\n\n*Habits:*\n{{
+            '✅' if r.gym_done else '⬜' }} Gym: {{ '+1' if r.gym_done else '0' }}\n{{
+            '✅' if r.guitar_done else '⬜' }} Guitar ({{ r.guitar_min }} min): {{ '+1'
+            if r.guitar_done else '0' }}\n{{ '✅' if r.screen_ok else '⬜' }} Screen
+            {{ r.screen_total }}/{{ r.screen_limit }} min: {{ '+1' if r.screen_ok
+            else '0' }}{% if r.is_relaxed_day %} _(relaxed)_{% endif %}\n{{ '✅' if
+            r.steps_done else '⬜' }} Steps {{ r.steps_count }}/{{ r.steps_target }}:
+            {{ '+2' if r.steps_done else '0' }}\n{{ '✅' if r.tasks_done else '⬜' }}
+            House tasks: {{ '+1' if r.tasks_done else '0' }}\n\n*Breakdown:*\nYT:
+            {{ r.breakdown.youtube }} | IG: {{ r.breakdown.instagram }} | NF: {{ r.breakdown.netflix
+            }}\nPrime: {{ r.breakdown.prime }} | Hotstar: {{ r.breakdown.jiohotstar
+            }} | Brave: {{ r.breakdown.brave }}\n\n*Points: {{ r.current_pts }} →
+            {{ new_pts }}/{{ points_max }}* (+{{ filtered_total }})\n{% if exemptions_earned
+            > 0 %}\U0001F389 *Earned {{ exemptions_earned }} exemption day{{ 's' if
+            exemptions_earned != 1 else '' }}!*\n{% endif %}• Overflow: {{ new_overflow
+            }}/{{ points_per_exemption }} toward next exemption\n• Exemption days:
+            {{ new_exemption_days }}"
+      - stop: Exemption day — reward-only evaluation complete
   - action: script.jarvis_compute_daily_eval
     response_variable: r
   - variables:
@@ -539,12 +589,12 @@
         }})
       start_date: '{{ now().strftime(''%Y-%m-%d'') }}'
       end_date: '{{ (now() + timedelta(days=1)).strftime(''%Y-%m-%d'') }}'
-      description: 'Gym: {{ ''+1'' if r.gym_done else ''-2'' }}
+      description: 'Gym: {{ ''+1'' if r.gym_done else ''-1'' }}
 
         Guitar: {{ r.guitar_min }} min ({{ ''+1'' if r.guitar_done else ''-1'' }})
 
         Screen: {{ r.screen_total }}/{{ r.screen_limit }} min ({{ ''+1'' if r.screen_ok
-        else ''-2'' }})
+        else ''-1'' }})
 
         Tasks: {{ ''+1'' if r.tasks_done else ''+0'' }}
 
@@ -569,10 +619,10 @@
     data:
       message: "\U0001F4CB *Jarvis Daily Report*{% if r.is_relaxed_day %} \U0001F334{%
         endif %}\n\n*Habits:*\n{{ '✅' if r.gym_done else '❌' }} Gym: {{ '+1' if r.gym_done
-        else '-2' }}\n{{ '✅' if r.guitar_done else '❌' }} Guitar ({{ r.guitar_min
+        else '-1' }}\n{{ '✅' if r.guitar_done else '❌' }} Guitar ({{ r.guitar_min
         }} min): {{ '+1' if r.guitar_done else '-1' }}\n{{ '✅' if r.screen_ok else
         '❌' }} Screen {{ r.screen_total }}/{{ r.screen_limit }} min: {{ '+1' if r.screen_ok
-        else '-2' }}\n{{ '✅' if r.tasks_done else '❌' }} House tasks: {{ '+1' if r.tasks_done
+        else '-1' }}\n{{ '✅' if r.tasks_done else '❌' }} House tasks: {{ '+1' if r.tasks_done
         else '+0' }}\n{{ '✅' if r.steps_done else '⬜' }} Steps {{ r.steps_count }}/{{
         r.steps_target }}: {{ '+2' if r.steps_done else '+0' }}\n\n*Breakdown:*\nYT:
         {{ r.breakdown.youtube }} | IG: {{ r.breakdown.instagram }} | NF: {{ r.breakdown.netflix

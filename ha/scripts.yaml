@@ -194,8 +194,8 @@ jarvis_compute_daily_eval:
       steps_done: '{{ steps_count | int >= steps_target | int }}'
   - variables:
       guitar_delta: '{{ 1 if guitar_done else -1 }}'
-      gym_delta: '{{ 1 if gym_done else -2 }}'
-      screen_delta: '{{ 1 if screen_ok else -2 }}'
+      gym_delta: '{{ 1 if gym_done else -1 }}'
+      screen_delta: '{{ 1 if screen_ok else -1 }}'
       tasks_delta: '{{ 1 if tasks_done else 0 }}'
       steps_delta: '{{ 2 if steps_done else 0 }}'
   - variables:

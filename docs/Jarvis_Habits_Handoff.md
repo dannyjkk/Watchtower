@@ -25,7 +25,7 @@ Danny is a smart-home power user in Bangalore running a small home lab. He wants
 - Awards/deducts points based on whether habits were done
 - Progressively punishes slippage by **DNS-blocking entertainment apps on his phone** via AdGuard Home
 - Sends daily reports via his existing Telegram bot ("Jarvis")
-- Supports **exemption days** (skip eval entirely AND lift all AdGuard blocks for the day, costs 1 from bank) and **holidays** (soft day, relaxed screen limit) — exemption days are earned by over-performing
+- Supports **exemption days** (reward-only scoring — positive deltas applied, penalties zeroed — AND lift all AdGuard blocks for the day, costs 1 from bank) and **holidays** (soft day, relaxed screen limit) — exemption days are earned by over-performing
 - Self-monitors data flow health and alerts when Tasker or AdGuard sync goes stale
 
 Core design philosophy: **HA is the single source of truth for state and business logic.** Jarvis on OpenClaw is a conversational frontend but should not re-implement habits logic. All scoring, punishment, and habit-evaluation logic lives in HA.
@@ -48,7 +48,7 @@ Architecture notes worth highlighting:
 | **Home Assistant** | Dedicated VM on Proxmox | IP: `192.168.0.124:8123`. Has MCP server exposed for LLM admin. Integration with AdGuard Home already configured. |
 | **AdGuard Home** | **Colocated on the OpenClaw VM (`ubuntu-media`).** Reachable at `192.168.0.122:80` (LAN) + `100.111.225.16` (Tailscale). | Version `v0.107.74`. Credentials: **see `secrets.yaml`** (basic-auth header stored there). Two switches matter: `switch.adguard_home_protection_2` (master kill switch) and `switch.adguard_home_filtering_2` (filtering subsystem, required for custom rules). Both MUST be ON. **Colocation note:** AdGuard shares a CPU with OpenClaw, Plex, qBittorrent, Ollama. Heavy CPU load on the VM (e.g., long Plex transcodes or local LLM inference) can lag DNS resolution for the household. |
 | **OpenClaw (Jarvis host)** | Same VM as AdGuard (`ubuntu-media` on Proxmox), reachable at `192.168.0.201` | Hosts the Jarvis Telegram agent. Has an HA long-lived access token named "Jarvis". |
-| **Phone (Samsung S23)** | Tailscale IP `100.70.157.25`, LAN IP `192.168.0.47` on WiFi "<YOUR_HOME_WIFI_5G>" | Tasker 6.4+ posts bulk usage stats to HA via polling webhook. Always on Tailscale. AdGuard sees both IPs and maps them to persistent client "Danny S23". |
+| **Phone (Samsung S23)** | Tailscale IP `100.70.157.25`, LAN IP `<YOUR_PHONE_LAN_IP>` on WiFi "<YOUR_HOME_WIFI_5G>" | Tasker 6.4+ posts bulk usage stats to HA via polling webhook. Always on Tailscale. AdGuard sees both IPs and maps them to persistent client "Danny S23". |
 | **Tailscale** | Everywhere | Routes home subnet. Phone can reach `192.168.0.124` (HA). |
 
 ---
@@ -86,7 +86,7 @@ HA flips input_boolean.phone_used_late on (idempotent, condition-guarded).
 
 23:20 IST — Nightly report.
              1. Snapshots current points to pre_eval_points.
-             2. If exempt today: send read-only stats summary, STOP.
+             2. If exempt today: call eval → apply reward-only scoring (positives only, penalties zeroed) → overflow math → write points → send Telegram summary.
              3. Else: calls jarvis_compute_daily_eval → gets eval_result.
              4. Applies overflow → exemption-day conversion math.
              5. Writes new demerit_points, overflow_points, exemption_days.
@@ -117,7 +117,7 @@ Every 15 minutes (drift correction):
   → automation.jarvis_adguard_periodic_sync
   → calls jarvis_sync_adguard_rules anyway (same exemption-aware logic)
 
-AdGuard then matches DNS queries from the phone (by IP 192.168.0.47 on LAN
+AdGuard then matches DNS queries from the phone (by IP <YOUR_PHONE_LAN_IP> on LAN
 or 100.70.157.25 on Tailscale) to persistent client "Danny S23" and applies
 the per-client custom rules. End-to-end verified May 2 2026; exemption
 override verified May 3 2026.
@@ -303,7 +303,7 @@ All automations live under category `01KQ8475KY5WD3511F1HYD02KT`.
 - **Trigger:** time 23:20:00 IST
 - **Logic:**
   1. Save current points to `pre_eval_points`.
-  2. **Exemption branch** (if `exemption_today` on): call `jarvis_compute_daily_eval` for read-only stats, send "exemption used" Telegram, stop.
+  2. **Exemption branch** (if `exemption_today` on): call `jarvis_compute_daily_eval`, apply reward-only scoring (positive deltas kept, negative deltas zeroed), run overflow/exemption math, write points/overflow/exemption_days + 6 daily result helpers (filtered), send "rewards only, no penalties" Telegram report.
   3. **Normal branch:**
      - Call `script.jarvis_compute_daily_eval` → `r` (response_variable).
      - Read tunables: `jarvis_points_max`, `jarvis_points_per_exemption`.
@@ -391,7 +391,7 @@ All automations live under category `01KQ8475KY5WD3511F1HYD02KT`.
   - Turn on `exemption_today`, decrement `exemption_days`, send confirmation.
   - **Post-eval rollback:** if called after 23:20 IST, restore `demerit_points` from `pre_eval_points` and notify.
 - **Mode:** single.
-- **Note:** Exemption now pauses *evaluation* AND lifts AdGuard blocks for the day. The sync script forces effective zone to green when `exemption_today` is on, regardless of actual points. At midnight the boolean flips off (midnight reset), the punishment enforcer re-fires (state change trigger), and the sync pushes rules for the actual current zone — old blocks return automatically if points are still low. (Prior to May 3, 2026, exemption only paused eval; blocks remained in place. That behavior is gone.)
+- **Note:** Exemption days use **reward-only scoring** — positive habit deltas are applied, negative deltas are zeroed out. Good habits still earn points (and overflow toward new exemption days), but missed habits carry no penalty. All AdGuard blocks are also lifted for the day. The sync script forces effective zone to green when `exemption_today` is on, regardless of actual points. At midnight the boolean flips off (midnight reset), the punishment enforcer re-fires (state change trigger), and the sync pushes rules for the actual current zone — old blocks return automatically if points are still low. (Prior to May 24, 2026, exemption days skipped all point changes entirely; the reward-only model was adopted to incentivize good habits even on rest days.)
 - **Defensive default (May 6, 2026):** the rollback now defaults to `states('input_number.demerit_points') | int(0)` (i.e. current value, no-op on failure) instead of `int(12)`. If `pre_eval_points` is somehow unavailable when the rollback fires, it leaves `demerit_points` alone instead of overwriting with a fake max value.
 - **Known minor (non-blocking):** the post-eval check uses `{{ now().hour > 23 or (now().hour == 23 and now().minute >= 20) }}`. HA's native `condition: time, after: "23:20:00"` would be cleaner; logically equivalent, deferred as cosmetic.
 
@@ -553,9 +553,9 @@ All thresholds are read from tunable entities at eval time, not hardcoded.
 ### Daily evaluation (at 23:20 IST)
 
 ```
-gym_delta    = +1 if gym_visited_today else -2
+gym_delta    = +1 if gym_visited_today else -1
 guitar_delta = +1 if phone_guitar_usage >= jarvis_guitar_target_minutes else -1
-screen_delta = +1 if phone_screen_time_total <= jarvis_screen_limit_today else -2
+screen_delta = +1 if phone_screen_time_total <= jarvis_screen_limit_today else -1
 tasks_delta  = +1 if tasks_completed_today else 0
 steps_delta  = +2 if garmin_connect_steps >= jarvis_steps_target else 0   # bonus-only
 total_delta  = gym_delta + guitar_delta + screen_delta + tasks_delta + steps_delta
@@ -578,7 +578,7 @@ if phone_used_late AND NOT exemption_today:
 
 ### Daily range
 - **Max daily gain: +6** (gym +1, guitar +1, screen +1, tasks +1, steps +2). Late phone can only deduct.
-- **Max daily loss: -6** (gym -2, guitar -1, screen -2, late -1). Tasks and steps never penalize.
+- **Max daily loss: -4** (gym -1, guitar -1, screen -1, late -1). Tasks and steps never penalize.
 - On a relaxed day, `screen_delta` is more forgiving because the limit is higher (210 vs 120).
 
 ### Zones (drives AdGuard via Punishment Enforcer)
@@ -846,7 +846,7 @@ ha_call_service("rest_command", "adguard_get",
 ha_call_service("rest_command", "adguard_get",
                 data={"path": "clients"}, return_response=True)
 # → look in content.clients[] for {name: "Danny S23", ids: [...]} 
-#   ids should include both 100.70.157.25 (Tailscale) and 192.168.0.47 (LAN)
+#   ids should include both 100.70.157.25 (Tailscale) and <YOUR_PHONE_LAN_IP> (LAN)
 
 # 3. Confirm rules loaded
 ha_call_service("rest_command", "adguard_get",

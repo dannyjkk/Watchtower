@@ -18,20 +18,20 @@ Brave: tracked, never blocked. TikTok, Twitch, Reddit, Snapchat: not blocked at 
 
 **Exemption override:** when `input_boolean.exemption_today` is on, sync forces effective zone to green regardless of points → all blocks lifted for the day. Midnight reset flips exemption off → enforcer re-fires → rules re-pushed for actual zone.
 
-The blocking mechanism is **custom per-client filtering rules** (domain lists in `script.jarvis_sync_adguard_rules`), pushed via `rest_command.adguard_set_custom_rules`. AdGuard identifies the phone by IP (LAN `192.168.0.47` or Tailscale `100.70.157.25`) and matches it to the persistent client "Danny S23". The four legacy per-zone rest_commands are gone.
+The blocking mechanism is **custom per-client filtering rules** (domain lists in `script.jarvis_sync_adguard_rules`), pushed via `rest_command.adguard_set_custom_rules`. AdGuard identifies the phone by IP (LAN `<YOUR_PHONE_LAN_IP>` or Tailscale `100.70.157.25`) and matches it to the persistent client "Danny S23". The four legacy per-zone rest_commands are gone.
 
 ## Daily math
 
 | Habit | If done | If not |
 |---|---|---|
-| Gym (≥`jarvis_gym_min_minutes` in zone, no WiFi) | +1 | -2 |
+| Gym (≥`jarvis_gym_min_minutes` in zone, no WiFi) | +1 | -1 |
 | Guitar (≥`jarvis_guitar_target_minutes` JustinGuitar) | +1 | -1 |
-| Screen time (≤`sensor.jarvis_screen_limit_today` total) | +1 | -2 |
+| Screen time (≤`sensor.jarvis_screen_limit_today` total) | +1 | -1 |
 | House tasks (manual via `/tasks_done`) | +1 | +0 |
 | Steps (≥`jarvis_steps_target` via Garmin Connect) | +2 | +0 |
 | Phone off by 11:30 PM | — | -1 |
 
-Max +6/day (habits, incl. steps bonus), max -6/day (worst case). Points clamped 0–`jarvis_points_max` (12). Steps is bonus-only — rewards but never penalizes.
+Max +6/day (habits, incl. steps bonus), max -4/day (worst case). Points clamped 0–`jarvis_points_max` (12). Steps is bonus-only — rewards but never penalizes.
 Overflow above max → `overflow_points`; `jarvis_points_per_exemption` (6) overflow → 1 exemption day auto-redeemed.
 
 **All thresholds are tunable input_numbers** — change live, no restart.
@@ -44,12 +44,12 @@ Three modes affect the day:
 |---|---|---|
 | **Normal** | Standard rules | (default) |
 | **Relaxed day** (auto: weekends; manual: `jarvis_holiday_today`) | Screen limit raises to 210 min. Gym/guitar/late phone unchanged. | `script.jarvis_mark_holiday_today` |
-| **Exemption day** | Skips eval entirely. Screen warnings paused. Late phone check paused. **AdGuard blocks lifted** (sync forces effective zone to green). Costs 1 from exemption bank. | `script.mark_exemption_today` |
+| **Exemption day** | Reward-only scoring (positive deltas applied, penalties zeroed). Screen warnings paused. Late phone check paused. **AdGuard blocks lifted** (sync forces effective zone to green). Costs 1 from exemption bank. | `script.mark_exemption_today` |
 
 `binary_sensor.jarvis_relaxed_day` = on when weekend OR holiday flag is on.
 `sensor.jarvis_screen_limit_today` = 210 if relaxed, else 120 (both tunable).
 
-**Note:** exemption now pauses *eval* AND lifts blocks. Sync script computes effective zone as `green if exemption_today is on else states('sensor.demerit_zone')`. At midnight the boolean flips off (midnight reset) → punishment enforcer fires (state-change trigger) → rules re-pushed for actual zone — so old blocks return automatically if points are still low. (Pre–May 3 behavior was eval-only; that's gone.)
+**Note:** exemption days use **reward-only scoring** — positive habit deltas are applied, negative deltas are zeroed out. Good habits still earn points and overflow toward new exemption days. AdGuard blocks are also lifted for the day. Sync script computes effective zone as `green if exemption_today is on else states('sensor.demerit_zone')`. At midnight the boolean flips off (midnight reset) → punishment enforcer fires (state-change trigger) → rules re-pushed for actual zone — so old blocks return automatically if points are still low. (Pre–May 24 2026: exemption skipped all point changes entirely; reward-only model adopted to incentivize effort on rest days.)
 
 ## Data ingestion — bulk polling model
 
@@ -252,7 +252,7 @@ Response at `service_response.content`.
 
 **4-step end-to-end verification:**
 1. `path=status` → expect `protection_enabled=true`, `running=true`
-2. `path=clients` → expect `{name: "Danny S23", ids: [100.70.157.25, 192.168.0.47]}`
+2. `path=clients` → expect `{name: "Danny S23", ids: [100.70.157.25, <YOUR_PHONE_LAN_IP>]}`
 3. `path=filtering/status` → if NOT exempt today, `user_rules` should contain 21 entries (7 yellow + 7 orange + 6 red + 1 WhatsApp allow); if exempt today, `user_rules` should be `[]`
 4. `path=querylog?limit=50&search=Danny%20S23` → recent entries with `client_info.name == "Danny S23"`; blocks show `reason: "FilteredBlackList"` and `filter_list_id: 0`
 
@@ -260,7 +260,7 @@ If 1–3 pass but 4 returns empty: phone isn't using AdGuard for DNS — most li
 
 ## Infrastructure (full table: Handoff §2)
 
-HA `192.168.0.124:8123` · AdGuard `192.168.0.122:80` (v0.107.74, **colocated on the OpenClaw VM** with Plex/qBit/Ollama) · OpenClaw VM `ubuntu-media` at `192.168.0.201` · Phone S23 LAN `192.168.0.47` / Tailscale `100.70.157.25` · All credentials in `secrets.yaml` (`telegram_jarvis_send_url`, `adguard_basic_auth` — see Handoff §7.3, §8). Heavy CPU on the VM can lag DNS for the household — see Handoff §13.
+HA `192.168.0.124:8123` · AdGuard `192.168.0.122:80` (v0.107.74, **colocated on the OpenClaw VM** with Plex/qBit/Ollama) · OpenClaw VM `ubuntu-media` at `192.168.0.201` · Phone S23 LAN `<YOUR_PHONE_LAN_IP>` / Tailscale `100.70.157.25` · All credentials in `secrets.yaml` (`telegram_jarvis_send_url`, `adguard_basic_auth` — see Handoff §7.3, §8). Heavy CPU on the VM can lag DNS for the household — see Handoff §13.
 
 **⚠️ Tasker dual-IP (May 10):** Bulk usage posts to Tailscale `100.107.164.26`, late phone posts to LAN `192.168.0.124`. See Handoff §9 / OF-3.
 

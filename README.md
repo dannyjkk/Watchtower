@@ -73,9 +73,9 @@ This is the core of the project — a gamified self-improvement system with real
 
 | Habit | How It's Tracked | Target | Points |
 |-------|-----------------|--------|--------|
-| Gym | GPS zone detection via Home Assistant | 20+ min visit | +1 done · -2 missed |
+| Gym | GPS zone detection via Home Assistant | 20+ min visit | +1 done · -1 missed |
 | Learning Guitar | App usage reported by Tasker | 20+ min practice | +1 done · -1 missed |
-| Screen Time | Tasker reports every 90s via webhook | Under daily limit | +1 under · -2 over |
+| Screen Time | Tasker reports every 90s via webhook | Under daily limit | +1 under · -1 over |
 | Daily Steps | Garmin Connect integration | 8,000+ steps | +2 done · 0 missed |
 | House Tasks | Telegram button confirmation | Confirm by 11 PM | +1 done · 0 missed |
 
@@ -98,15 +98,15 @@ Points range from 0 to 12, evaluated nightly at 11:20 PM IST. Your point total d
 
 ### Overflow & Exemption Days
 
-Sustained good behavior is rewarded. When points would exceed 12, the excess accumulates as **overflow**. Every 6 overflow points convert into 1 **exemption day** — a token you can declare at any time to skip that night's evaluation.
+Sustained good behavior is rewarded. When points would exceed 12, the excess accumulates as **overflow**. Every 6 overflow points convert into 1 **exemption day** — a token you can declare at any time for reward-only scoring that night.
 
 On an exemption day:
-- No point changes at the nightly eval
+- **Reward-only scoring** — positive deltas are applied, penalties are zeroed out
 - All DNS blocks lifted for the day
 - Late phone use check paused
-- Habits are still tracked and logged, just with no consequences
+- Habits are still tracked and logged — good habits still earn points, but missed habits carry no penalty
 
-This creates a positive feedback loop: consistently hitting habits builds a buffer for guilt-free days off.
+This creates a positive feedback loop: consistently hitting habits builds a buffer, and exemption days still reward effort without the risk of losing progress.
 
 ### The Daily Cycle
 
